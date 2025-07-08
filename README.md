@@ -6,34 +6,47 @@ Manga109の画像データと，MangaVoxの音声データとメタデータを�
 ## 起動方法
 - 0. 事前準備
     - `manga109`の画像データを用意
-        - 例: `../data/manga109/Manga109_released_2023_12_07/images/AkkeraKanjinchou`
+        - 例: `data/manga109/Manga109_released_2023_12_07/images/AkkeraKanjinchou`
     - `mangavox`のデータの準備
-        - 音声データは`manga2voice/concatenated_voices`ディレクトリに配置
+        - 音声データは`data/manga2voice/concatenated_voices`ディレクトリに配置
         - アノテーション用のXMLファイルは`data/workspace`ディレクトリに配置（XMLファイルは，manga109のメタデータとマージ済み）
 - 1. uvで環境構築
 - 2. サーバ起動
-    - `annotator`ディレクトリに移動
+    - 簡単起動シェル
+        ```bash
+        bash easy_launch.sh <mode> <manga_index>
+        ```
+        - `<mode>`：`full`または`utt`を指定
+        - `<manga_index>`：Manga109のインデックス番号を指定
+            1. AkkeraKanjinchou
+            2. Akuhamu
+            3. EverydayOsakanaChan
+            4. HinagikuKenzan
+            5. LoveHina_vol01
+            6. SaladDays_vol01
+            7. TaiyouNiSmash
+            8. YasasiiAkuma
     - コマンドの使い方
         ```bash
-        python launch_mangavox_annotation_tool.py <mode> --image_root <image_root> <xml_path> <audio_path>
+        python launch.py <mode> --image_root <image_root> <xml_path> <audio_path>
         ```
         - `<mode>`：`full`または`utt`を指定
         - `<image_root>`：漫画画像のディレクトリのパス
         - `<xml_path>`：アノテーション用のXMLファイルのパス
         - `<audio_path>`：音声ファイルのパス
-            - `full`モードの場合は音声ファイルのパス（例: `../data/manga2voice/voices/AkkeraKanjinchou_ALL.mp3`）
-            - `utt`モードの場合は音声ファイルのディレクトリのパス（例: `../data/manga2voice/concatenated_voices/AkkeraKanjinchou`）
-    - 例
-        - fullモードの場合
-            ```bash
-            MANGA_TITLE="AkkeraKanjinchou"
-            python launch_mangavox_annotation_tool.py full --image_root ../data/manga109/Manga109_released_2023_12_07/images/${MANGA_TITLE} ../data/workspace/${MANGA_TITLE}_revised_v5.xml ../data/manga2voice/voices/${MANGA_TITLE}_ALL.mp3
-            ```
-        - uttモードの場合
-            ```bash
-            MANGA_TITLE="AkkeraKanjinchou"
-            python launch_mangavox_annotation_tool.py utt --image_root ../data/manga109/Manga109_released_2023_12_07/images/${MANGA_TITLE} ../data/workspace/${MANGA_TITLE}_revised_v5.xml ../data/manga2voice/concatenated_voices/${MANGA_TITLE}
-            ```
+            - `full`モードの場合は音声ファイルのパス（例: `data/manga2voice/voices/AkkeraKanjinchou_ALL.mp3`）
+            - `utt`モードの場合は音声ファイルのディレクトリのパス（例: `data/manga2voice/concatenated_voices/AkkeraKanjinchou`）
+        - 例
+            - fullモードの場合
+                ```bash
+                MANGA_TITLE="AkkeraKanjinchou"
+                python launch.py full --image_root data/manga109/Manga109_released_2023_12_07/images/${MANGA_TITLE} data/workspace/${MANGA_TITLE}_revised_v5.xml data/manga2voice/voices/${MANGA_TITLE}_ALL.mp3
+                ```
+            - uttモードの場合
+                ```bash
+                MANGA_TITLE="AkkeraKanjinchou"
+                python launch.py utt --image_root data/manga109/Manga109_released_2023_12_07/images/${MANGA_TITLE} data/workspace/${MANGA_TITLE}_revised_v5.xml data/manga2voice/concatenated_voices/${MANGA_TITLE}
+                ```
     - オプション
         - 第一引数：モード
             - `full`: 作品全体の音声を表示

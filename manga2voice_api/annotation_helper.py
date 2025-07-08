@@ -3,6 +3,7 @@
 This module provides helper functions and classes for handling annotations in the MangaVox format.
 It includes functions to convert dictionaries to dataclasses, manage voice annotations, and handle MangaVox annotations.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -75,6 +76,7 @@ class ExtendedVoice(Voice):
         note (Note): A note element
         annotation_comment (Optional[Note]): An annotation comment element
     """
+
     # assignment reasons: manual, IoU, dialog
     frame_assignment_reason: Optional[str] = dataclasses.field(
         default=None, metadata={"type": XmlType.ATTRIBUTE}
@@ -297,6 +299,7 @@ class ExtendedVoice(Voice):
             audio_id=self.audio_id,
         )
 
+
 @dataclasses.dataclass(kw_only=True)
 class MangaVoxForAnnotation(MangaVox):
     """A MangaVox object for annotation
@@ -311,12 +314,25 @@ class MangaVoxForAnnotation(MangaVox):
         created (str): The creation timestamp of the annotation
         last_modified (str): The last modified timestamp of the annotation
     """
+
     created: str = dataclasses.field(metadata={"type": XmlType.ATTRIBUTE})
     last_modified: str = dataclasses.field(metadata={"type": XmlType.ATTRIBUTE})
     voices: List[ExtendedVoice] = dataclasses.field(
         default_factory=list,
         metadata={"type": XmlType.ELEMENT, "name": "aligned_voice"},
-    ) # type: ignore
+    )  # type: ignore
+
+    def get_voice_by_id(self, target_id: str) -> Optional[ExtendedVoice]:
+        """Find the voice by ID
+
+        Args:
+            target_id (str): Target ID
+
+        Returns:
+            Optional[ExtendedVoice]: The voice with the given ID, or None if not found
+        """
+        voice = super().get_voice_by_id(target_id)
+        return cast(Optional[ExtendedVoice], voice)
 
     def reset_index(self):
         """Reset the indices of the voice elements"""
@@ -350,7 +366,7 @@ class MangaVoxForAnnotation(MangaVox):
 
     def check_undefined_characters(self):
         """Check the undefined characters
-        
+
         Raises:
             ValueError: If any voice or page body/face has an undefined character ID
         """
@@ -408,7 +424,7 @@ class MangaVoxForAnnotation(MangaVox):
         ):  # update only text/body/face/frame assigned attributes in the specified page
             target_voices = filter(lambda x: x.page_index == page_index, self.voices)
         else:
-            target_voices = self.voices # type: ignore
+            target_voices = self.voices  # type: ignore
         for voice in target_voices:
             text_ids = filter_elements("text_id", voice, text_ids)
             body_ids = filter_elements("body_id", voice, body_ids)
@@ -428,7 +444,9 @@ class MangaVoxForAnnotation(MangaVox):
                 ],
                 [text_ids, body_ids, face_ids, frame_ids],
             ):
-                to_be_updateds = cast(List[Text] | List[Body] | List[Face] | List[Frame], to_be_updateds)
+                to_be_updateds = cast(
+                    List[Text] | List[Body] | List[Face] | List[Frame], to_be_updateds
+                )
                 # Reset the assigned attribute
                 reset_attrib("assigned", to_be_updateds)
                 update_attrib("assigned", to_be_updateds, ids)
@@ -444,7 +462,10 @@ class MangaVoxForAnnotation(MangaVox):
                     ],
                     [text_ids, body_ids, face_ids, frame_ids],
                 ):
-                    to_be_updateds = cast(List[Text] | List[Body] | List[Face] | List[Frame], to_be_updateds)
+                    to_be_updateds = cast(
+                        List[Text] | List[Body] | List[Face] | List[Frame],
+                        to_be_updateds,
+                    )
                     reset_attrib("assigned", to_be_updateds)
                     update_attrib("assigned", to_be_updateds, ids)
 
@@ -506,4 +527,3 @@ class MangaVoxForAnnotation(MangaVox):
                 f"Annotation version mismatch: {config_data['annotation_version']['last_modified']} != {self.last_modified}"
             )
         return True
-

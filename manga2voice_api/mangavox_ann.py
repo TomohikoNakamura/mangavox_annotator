@@ -2,6 +2,7 @@
 ===================================
 This module defines data classes for handling MangaVox annotations.
 It includes classes for characters, voices, and the overall MangaVox annotation structure."""
+
 from __future__ import annotations
 
 import copy
@@ -184,6 +185,7 @@ class Voice:
         text (str): The spoken text
         audio_id (Optional[str]): The audio file id
     """
+
     id: str = dataclasses.field(metadata={"type": XmlType.ATTRIBUTE})
     index: int = dataclasses.field(metadata={"type": XmlType.ATTRIBUTE})
     start: float = dataclasses.field(metadata={"type": XmlType.ATTRIBUTE})
@@ -388,7 +390,9 @@ class MangaVox(AnnotationMixin):
                 ],
                 [text_ids, body_ids, face_ids, frame_ids],
             ):
-                to_be_updateds = cast(List[Text] | List[Body] | List[Face] | List[Frame], to_be_updateds)
+                to_be_updateds = cast(
+                    List[Text] | List[Body] | List[Face] | List[Frame], to_be_updateds
+                )
                 reset_attrib("assigned", to_be_updateds)
                 update_attrib("assigned", to_be_updateds, ids)
         else:
@@ -403,14 +407,17 @@ class MangaVox(AnnotationMixin):
                     ],
                     [text_ids, body_ids, face_ids, frame_ids],
                 ):
-                    to_be_updateds = cast(List[Text] | List[Body] | List[Face] | List[Frame], to_be_updateds)
+                    to_be_updateds = cast(
+                        List[Text] | List[Body] | List[Face] | List[Frame],
+                        to_be_updateds,
+                    )
                     reset_attrib("assigned", to_be_updateds)
                     update_attrib("assigned", to_be_updateds, ids)
 
     # check methods
     def check_overlapping_voice_ids(self):
         """Check the overlapping voice IDs
-        
+
         Raises:
             ValueError: If any voice ID is duplicated
         """
@@ -422,7 +429,7 @@ class MangaVox(AnnotationMixin):
 
     def check_overlapping_voice_indices(self):
         """Check the overlapping voice indices
-        
+
         Raises:
             ValueError: If any voice index is duplicated
         """
@@ -434,7 +441,7 @@ class MangaVox(AnnotationMixin):
 
     def check_consistency_of_voice_indices(self):
         """Check the consistency of the voice indices
-        
+
         Raises:
             ValueError: If the voice indices are not consistent
         """
@@ -496,7 +503,12 @@ class MangaVox(AnnotationMixin):
 
     # generate methods
     def sequential_generate_annotations_on_image(
-        self, time_list: List[float], image_root: Path, frame_size: Tuple[int, int], verbose: bool = False, n_threads: int = -1
+        self,
+        time_list: List[float],
+        image_root: Path,
+        frame_size: Tuple[int, int],
+        verbose: bool = False,
+        n_threads: int = -1,
     ):
         """Generate the annotated images sequentially
 
@@ -509,8 +521,20 @@ class MangaVox(AnnotationMixin):
 
         Yields:
         """
+
+        #
+        def filter_elements(
+            target_frame_ids: str,
+            target_list: List[Frame] | List[Face] | List[Body] | List[Text],
+        ) -> List[Frame | Face | Body | Text]:
+            return list(
+                filter(lambda x: x.id in target_frame_ids.split(","), target_list)
+            )
+
+        # Sanity check
         if self.pages is None:
             raise ValueError("Pages not found in MangaVox object")
+        #
         self.voices = sorted(self.voices, key=lambda x: x.start)
         # Create a meta sequence for the current page
         meta_sequence = []
@@ -537,7 +561,14 @@ class MangaVox(AnnotationMixin):
             # check matched_voice_indices change
             if i == 0 or (matched_voice_indices != prev_matched_voice_indices):
                 # Update the current page index
-                page_indices = cast(List[int], [self.voices[index].page_index for index in matched_voice_indices if self.voices[index].page_index is not None])
+                page_indices = cast(
+                    List[int],
+                    [
+                        self.voices[index].page_index
+                        for index in matched_voice_indices
+                        if self.voices[index].page_index is not None
+                    ],
+                )
                 if len(set(page_indices)) > 1:
                     # background_chatterではないものがユニークであればOK
                     org_page_indices = page_indices
@@ -575,19 +606,19 @@ class MangaVox(AnnotationMixin):
                 for voice in [self.voices[i] for i in matched_voice_indices]:
                     if voice.frame_id is not None:
                         frame_list = self.pages.page[current_page_index].frames
-                        for frame in filter(lambda x: x.id in voice.frame_id.split(","), frame_list):  # type: ignore
+                        for frame in filter_elements(voice.frame_id, frame_list):
                             to_be_drawn["frame"].append(frame)
                     if voice.body_id is not None:
                         body_list = self.pages.page[current_page_index].bodies
-                        for body in filter(lambda x: x.id in voice.body_id.split(","), body_list):  # type: ignore
+                        for body in filter_elements(voice.body_id, body_list):
                             to_be_drawn["body"].append(body)
                     if voice.face_id is not None:
                         face_list = self.pages.page[current_page_index].faces
-                        for face in filter(lambda x: x.id in voice.face_id.split(","), face_list):  # type: ignore
+                        for face in filter_elements(voice.face_id, face_list):
                             to_be_drawn["face"].append(face)
                     if voice.text_id is not None:
                         text_list = self.pages.page[current_page_index].texts
-                        for text in filter(lambda x: x.id in voice.text_id.split(","), text_list):  # type: ignore
+                        for text in filter_elements(voice.text_id, text_list):
                             to_be_drawn["text"].append(text)
                 # create meta sequence
                 meta_sequence.append(to_be_drawn)
@@ -624,9 +655,9 @@ class MangaVox(AnnotationMixin):
                 disable=not verbose,
             ) as pbar:
                 for result in results:
-                    frame, n_calls = result.result()
+                    image, n_calls = result.result()
                     for _ in range(n_calls):
-                        yield frame
+                        yield image
                     pbar.update(n_calls)
 
 

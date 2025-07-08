@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MangaVox Annotation Tool</title>
+    <!-- Bootstrap -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+
+<body>
+    <!-- Header -->
+    <nav class="navbar navbar-light bg-light">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">
+                <strong>Manga Title:</strong> <span id="manga_title">Loading...</span>
+            </span>
+            <!-- Toggle for Time Range Editing -->
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="voice_edit_mode_toggle">
+                <label class="form-check-label" for="voice_edit_mode_toggle">Voice Edit Mode</label>
+            </div>
+        </div>
+    </nav>
+    <!-- Overlay -->
+    <div id="overlay">
+        <div id="overlay_content">
+            <p id="status" style="color: red;">
+            </p>
+            <div class="progress" style="height: 20px; margin-top: 10px;">
+                <div id="waveform_progress_bar"
+                    class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar"
+                    style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                </div>
+            </div>
+            <p id="help_message" align="left"></p>
+        </div>
+    </div>
+    <!-- Toast -->
+    <div id="toast_container" class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1050;">
+    </div>
+    <!-- Main body -->
+    <div class="container-fluid">
+    </div>
+    <div class="row mt-3">
+        <!-- Manga image -->
+        <div class="col-md-8">
+            <div class="row">
+                <div class="col-4">
+                    <h5>Current mouse position</h5>
+                </div>
+                <div id="image_annotation_details" class="col-8 d-flex flex-column">
+                    <div>
+                        <strong>Annotation Type:</strong> <span id="image_annotation_details_type"></span>
+                    </div>
+                    <div>
+                        <strong>ID:</strong> <span id="image_annotation_details_id"></span>
+                    </div>
+                </div>
+            </div>
+            <div id="manga_container" style="position: relative; display: inline-block;">
+                <img id="manga_image" src="" alt="Manga Page" class="img-fluid border rounded">
+                <canvas id="manga_canvas" style="position: absolute; top: 0; left: 0; pointer-events: auto;"></canvas>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                <!-- Previous page button -->
+                <button id="prevPage" class="btn btn-primary">Previous Page</button>
+
+                <!-- Current page with input -->
+                <div class="d-flex align-items-center" style="gap: 4px;">
+                    <strong>Page:</strong>
+                    <input id="current_page_input" type="number" class="form-control text-center" min="0" value="0"
+                        style="width: 60px; padding: 0 4px;">
+                    <span>/</span>
+                    <span id="total_pages">100</span>
+                </div>
+
+                <!-- Next page button -->
+                <button id="nextPage" class="btn btn-primary">Next Page</button>
+            </div>
+        </div>
+
+        <div class="col-md-4 accordion">
+            <!-- TODO: Filter for annotations -->
+            <!-- <div id="annotation_filter_accordion">
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button id="annotation_filter_header" class="accordion-button" type="button"
+                            data-bs-toggle="collapse" data-bs-target="#annotation_filter_collapse" aria-expanded="true"
+                            aria-controls="annotation_filter_collapse">
+                            Filtered
+                    </h2>
+                    <div id="annotation_filter_collapse" class="accordion-collapse collapse"
+                        aria-labelledby="annotation_filter_header" data-bs-parent="#annotation_accordion">
+                        <div id="annotation_filters" class="accordion-body p-3 border rounded bg-light">
+                            <form id="annotation_filter_form">
+                                <div class="row align-items-center mb-3">
+                                    <div class="col-2">
+                                        <div class="form-check form-switch align-items-center">
+                                            <input type="checkbox" id="abnormality_filter" class="form-check-input">
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <label for="abnormality_filter" class="col-10 col-form-label"><strong>Abnormal
+                                                only</strong></label>
+                                        <small class="text-muted">
+                                            Conditions for abnormal:
+                                            <ul style="margin: 0; padding-left: 20px;">
+                                                <li><code>audio_id</code>, <code>actor_id</code>,
+                                                    <code>page_index</code>, or <code>character_index</code> is
+                                                    <strong>null</strong>
+                                                </li>
+                                                <li>Multiple elements selected for <code>frame_id</code>,
+                                                    <code>body_id</code>, or <code>face_id</code>
+                                                </li>
+                                            </ul>
+                                        </small>
+                                    </div>
+                                </div>
+
+                                <hr class="my-3">
+
+                                <div class="row align-items-center mb-3">
+                                    <label id="voice_filter_label" for="voice_filter"
+                                        class="col-2 col-form-label"><strong>Voice:</strong></label>
+                                    <div class="col">
+                                        <input id="voice_filter" type="text" class="form-control"
+                                            　placeholder="Filter by voice...">
+                                    </div>
+                                </div>
+
+                                <div class="row align-items-center mb-3">
+                                    <label id="audio_id_filter_label" for="audio_id_filter"
+                                        class="col-2 col-form-label"><strong>Audio:</strong></label>
+                                    <div class="col">
+                                        <select id="audio_id_filter" class="form-select">
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="row align-items-center mb-3">
+                                    <label id="actor_id_filter_label" for="actor_id_filter"
+                                        class="col-2 col-form-label"><strong>Actor:</strong></label>
+                                    <div class="col">
+                                        <select id="actor_id_filter" class="form-select">
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="row align-items-center mb-3">
+                                    <label id="character_id_filter_label" for="character_id_filter"
+                                        class="col-2 col-form-label"><strong>Character:</strong></label>
+                                    <div class="col">
+                                        <select id="character_id_filter" class="form-select">
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="row align-items-center mb-3">
+                                    <div class="col-2">
+                                        <div class="form-check form-switch align-items-center">
+                                            <input type="checkbox" id="annotation_note_filter" class="form-check-input">
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <label for="annotation_note_filter" class="col-10 col-form-label"><strong>Has
+                                                notes only</strong></label>
+                                    </div>
+                                </div>
+
+                                <div class="row align-items-center mb-3">
+                                    <div class="col-2">
+                                        <div class="form-check form-switch align-items-center">
+                                            <input type="checkbox" id="annotation_comment_filter"
+                                                class="form-check-input">
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <label for="annotation_comment_filter" class="col-10 col-form-label"><strong>Has
+                                                comments only</strong></label>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div> -->
+            <!-- Annotation details -->
+            <div id="annotation_details_accordion">
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button id="annotation_details_head" class="accordion-button" type="button"
+                            data-bs-toggle="collapse" data-bs-target="#annotation_details_collapse" aria-expanded="true"
+                            aria-controls="annotation_details_collapse">
+                            Annotation Details
+                        </button>
+                    </h2>
+                    <div id="annotation_details_collapse" class="accordion-collapse collapse show"
+                        aria-labelledby="annotation_details_header" data-bs-parent="#annotation_details_accordion">
+                        <div id="annotation_details" class="accordion-body p-3 border rounded bg-light">
+                            <form id="annotation_form">
+                                <div class="row align-items-center mb-3 bg-light border-bottom py-1">
+                                    <div class="col-2 text-center fw-bold"></div>
+                                    <div class="col text-center fw-bold">
+                                        <span>Current</span>
+                                    </div>
+                                    <div class="col text-center fw-bold">
+                                        <span>New</span>
+                                    </div>
+                                </div>
+
+                                <div class="row align-items-center mb-3">
+                                    <label id="voice_id_label" for="voice_id" class="col-2 col-form-label"><strong>Voice
+                                            ID:</strong></label>
+                                    <div class="col">
+                                        <span id="current_voice_id">None</span>
+                                    </div>
+                                </div>
+
+                                <div class="row align-items-center mb-3">
+                                    <label for="start" class="col-2 col-form-label"><strong>Start:</strong></label>
+                                    <div class="col">
+                                        <span id="current_start">None</span>
+                                    </div>
+                                </div>
+
+                                <div class="row align-items-center mb-3">
+                                    <label for="end" class="col-2 col-form-label"><strong>End:</strong></label>
+                                    <div class="col">
+                                        <span id="current_end">None</span>
+                                    </div>
+                                </div>
+
+                                <div class="row align-items-center mb-3">
+                                    <label id="note_label" for="note"
+                                        class="col-2 col-form-label"><strong>Note:</strong></label>
+                                    <div class="col">
+                                        <textarea id="note" class="form-control" rows="1" readonly></textarea>
+                                    </div>
+                                </div>
+
+                                <hr class="my-3">
+
+                                <div class="row align-items-center mb-3">
+                                    <label id="audio_label" for="audio_id"
+                                        class="col-2 col-form-label"><strong>Audio:</strong></label>
+                                    <div class="col">
+                                        <span id="current_audio_id">None</span>
+                                    </div>
+                                    <div class="col">
+                                        <select id="audio_id" class="form-select">
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="row align-items-center mb-3">
+                                    <label id="actor_label" for="actor_id"
+                                        class="col-2 col-form-label"><strong>Actor:</strong></label>
+                                    <div class="col">
+                                        <span id="current_actor_id">None</span>
+                                    </div>
+                                    <div class="col">
+                                        <select id="actor_id" class="form-select">
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="row align-items-center mb-3">
+                                    <label id="character_label" for="character_id"
+                                        class="col-2 col-form-label"><strong>Character:</strong></label>
+                                    <div class="col">
+                                        <span id="current_character_id">None</span>
+                                    </div>
+                                    <div class="col">
+                                        <select id="character_id" class="form-select">
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <hr class="my-3">
+
+                                <div class="row align-items-center mb-3">
+                                    <label for="page_index" class="col-2 col-form-label"><strong>Page:</strong></label>
+                                    <div class="col">
+                                        <span id="current_page_index">None</span>
+                                    </div>
+                                    <div class="col">
+                                        <input id="page_index" type="number" class="form-control" min="1" max="100"
+                                            value="0">
+                                    </div>
+                                </div>
+
+                                <div class="row align-items-center mb-3">
+                                    <label id="frame_label" for="frame_id"
+                                        class="col-2 col-form-label"><strong>Frame:</strong></label>
+                                    <div class="col">
+                                        <span id="current_frame_id">None</span>
+                                    </div>
+                                    <div class="col">
+                                        <select id="frame_id" class="form-select" size="3" multiple>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="row align-items-center mb-3">
+                                    <label id="body_label" for="body_id"
+                                        class="col-2 col-form-label"><strong>Body:</strong></label>
+                                    <div class="col">
+                                        <span id="current_body_id">None</span>
+                                    </div>
+                                    <div class="col">
+                                        <select id="body_id" class="form-select" size="3" multiple>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="row align-items-center mb-3">
+                                    <label id="face_label" for="face_id"
+                                        class="col-2 col-form-label"><strong>Face:</strong></label>
+                                    <div class="col">
+                                        <span id="current_face_id">None</span>
+                                    </div>
+                                    <div class="col">
+                                        <select id="face_id" class="form-select" size="3" multiple>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <hr class="my-3">
+
+                                <div class="row align-items-center mb-3">
+                                    <label id="text_label" for="text_id"
+                                        class="col-2 col-form-label"><strong>Text:</strong></label>
+                                    <div class="col">
+                                        <span id="current_text_id">None</span>
+                                    </div>
+                                    <div class="col">
+                                        <select id="text_id" class="form-select">
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="row align-items-center mb-3">
+                                    <label id="spoken_text_label" for="spoken_text"
+                                        class="col-2 col-form-label"><strong>Spoken Text:</strong></label>
+                                    <div class="col">
+                                        <textarea id="spoken_text" class="form-control" rows="2"
+                                            placeholder="Spoken text will be displayed here..."></textarea>
+                                    </div>
+                                </div>
+
+                                <hr class="my-3">
+
+                                <div class="row align-items-center mb-3">
+                                    <label id="comment_label" for="annotation_comment"
+                                        class="col-2 col-form-label"><strong>Comment:</strong></label>
+                                    <div class="col">
+                                        <textarea id="annotation_comment" class="form-control" rows="2"
+                                            placeholder="Enter your comment here..."></textarea>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex justify-content-between align-items-center mt-3">
+                                    <button type="button" class="btn btn-primary" id="saveAnnotation">Save</button>
+                                    <button type="button" class="btn btn-primary" id="resetAnnotation">Reset</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Waveform and timeline -->
+    <div class="row mt-3">
+        <div class="col-12">
+            <div id="waveform" class="mb-3"></div>
+            <div id="minimap" class="mb-3"></div>
+            <input type="range" id="zoomRange" class="form-range mt-3" min="10" max="200" value="50" hidden>
+        </div>
+    </div>
+
+    <!-- Hidden load audio button -->
+    <button id="loadAudio" class="btn btn-primary mt-3" hidden>Load Audio</button>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/wavesurfer.js"></script>
+    <script src="https://unpkg.com/wavesurfer.js/dist/plugins/regions.min.js"></script>
+    <script src="https://unpkg.com/wavesurfer.js/dist/plugins/minimap.min.js"></script>
+    <script src="/static/utils.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+
+</html>

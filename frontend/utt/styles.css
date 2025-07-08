@@ -1,0 +1,142 @@
+body {
+  font-family: Arial, sans-serif;
+}
+
+.bg-light {
+  background-color: #f8f9fa;
+}
+
+.text-left {
+  text-align: left;
+}
+
+.align-center {
+  display: flex;
+  align-items: center;
+}
+
+.box-shadow {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+#annotation-details,
+#waveform,
+#timeline {
+  @extend .bg-light;
+}
+
+.waveform_row {
+  display: flex; /* 横並びにする */
+  align-items: center; /* 垂直方向を中央揃え */
+  margin-bottom: 10px;
+}
+
+.waveform_label {
+  width: 10%; /* ラベル幅を調整 */
+  text-align: right;
+  padding-right: 10px;
+  font-weight: bold;
+}
+
+.waveform_container {
+  flex: 1; /* 残りのスペースを使用 */
+}
+
+#overlay {
+  @extend .align-center;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+}
+
+#overlay_content {
+  @extend .box-shadow;
+  background-color: white;
+  padding: 20px;
+  border-radius: 10px;
+  text-align: center;
+}
+
+#help_message {
+  color: #0c5460;
+  background-color: #d1ecf1;
+  padding: 10px;
+  border-radius: 5px;
+}
+
+#status {
+  color: #721c24;
+  background-color: #f8d7da;
+  padding: 10px;
+  border-radius: 5px;
+  font-weight: bold;
+}
+
+#manga_container {
+  padding: 0;
+  margin: 0;
+  border: none;
+  position: relative;
+  display: inline-block;
+  width: 100%; /* コンテナ幅を画像幅に合わせる */
+}
+
+#manga_image {
+  display: block;
+  width: 100%; /* 全幅に合わせる */
+  height: auto;
+}
+
+#manga_canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%; /* 画像幅と一致させる */
+  height: 100%; /* 自動調整 */
+  pointer-events: auto; /* マウスイベントを有効にする */
+  z-index: 10; /* 画像の上に表示 */
+}
+
+.container {
+  max-width: 600px;
+}
+
+.row {
+  @extend .align-center;
+  margin-bottom: 10px;
+}
+
+.row label {
+  margin-right: 10px;
+}
+
+.row select:hover,
+.row input:hover {
+  background-color: #f0f0f0;
+  cursor: pointer;
+}
+
+#image_annotation_details {
+  @extend .text-left;
+}
+
+#image_annotation_details .annotation-type,
+#image_annotation_details .annotation-id {
+  margin-bottom: 10px;
+}
+
+form#annotation_filter_form .row,
+form#annotation_form .row {
+  margin-bottom: 2px !important; /* 行間を縮める */
+  padding-top: 0 !important; /* 上部のパディングを削除 */
+  padding-bottom: 0 !important; /* 下部のパディングを削除 */
+}
+
+form#annotation_filter_form .row:last-child,
+form#annotation_form .row:last-child {
+  margin-bottom: 0 !important; /* 最後の行の余白を削除 */
+}

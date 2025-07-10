@@ -1,8 +1,9 @@
-"""manga2voice_api.utils
+"""mangavox_api.utils
 ===================================
 This module provides utility functions and classes for handling annotations in the MangaVox format.
 It includes a mixin class for reading and writing annotation files, computing hash values, and managing timestamps.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -28,7 +29,7 @@ def get_timestamp_in_iso8601_format() -> str:
 
 class AnnotationMixin(ABC):
     """Base class for annotation objects
-    
+
     This class provides methods for reading and writing annotation files,
     computing hash values, and managing timestamps.
     It is intended to be used as a mixin for other annotation classes.

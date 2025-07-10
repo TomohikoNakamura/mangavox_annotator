@@ -1,4 +1,4 @@
-"""manga2voice_api.mangavox_ann
+"""mangavox_api.mangavox_ann
 ===================================
 This module defines data classes for handling MangaVox annotations.
 It includes classes for characters, voices, and the overall MangaVox annotation structure."""
@@ -18,8 +18,8 @@ from PIL import Image, ImageDraw, ImageFont
 from tqdm import tqdm
 from xsdata.formats.dataclass.models.elements import XmlType
 
-from manga2voice_api.manga109_ann import Body, Face, Frame, Manga109, Pages, Text
-from manga2voice_api.utils import AnnotationMixin
+from mangavox_api.manga109_ann import Body, Face, Frame, Manga109, Pages, Text
+from mangavox_api.utils import AnnotationMixin
 
 
 @dataclasses.dataclass

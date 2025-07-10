@@ -1,14 +1,15 @@
-"""manga2voice_api.manga109dialog_ann
+"""mangavox_api.manga109dialog_ann
 ===================================
 This module defines data classes for handling Manga109 dialog annotations.
 It includes classes for mapping speakers to text, representing pages, and the overall dialog annotation structure.
 """
+
 import dataclasses
 from typing import List
 
 from xsdata.formats.dataclass.models.elements import XmlType
 
-from manga2voice_api.utils import AnnotationMixin
+from mangavox_api.utils import AnnotationMixin
 
 
 @dataclasses.dataclass

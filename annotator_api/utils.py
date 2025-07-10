@@ -12,7 +12,7 @@ import soundfile as sf  # type: ignore
 import yaml
 from fastapi import Request
 
-from manga2voice_api.annotation_helper import MangaVoxForAnnotation
+from mangavox_api.annotation_helper import MangaVoxForAnnotation
 
 
 def generate_client_uid(request: Request) -> str:

@@ -3,8 +3,8 @@ from pathlib import Path
 
 from loguru import logger
 
-from manga2voice_api.manga109_ann import Manga109
-from manga2voice_api.mangavox_ann import MangaVox
+from mangavox_api.manga109_ann import Manga109
+from mangavox_api.mangavox_ann import MangaVox
 
 
 def parse_args() -> Namespace:

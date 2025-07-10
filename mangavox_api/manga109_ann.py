@@ -1,8 +1,9 @@
-"""manga2voice_api.manga109_ann
+"""mangavox_api.manga109_ann
 ===================================
 This module provides data classes and utilities for handling Manga109 annotations.
 It includes classes for bounding boxes, characters, frames, faces, bodies, texts, and pages.
 It also provides methods for drawing annotations on images and calculating areas and intersections of bounding boxes."""
+
 from __future__ import annotations
 
 import dataclasses
@@ -12,7 +13,7 @@ from typing import List, Optional, Tuple
 from PIL import Image, ImageDraw
 from xsdata.formats.dataclass.models.elements import XmlType
 
-from manga2voice_api.utils import AnnotationMixin
+from mangavox_api.utils import AnnotationMixin
 
 # Define a color map for drawing annotations
 COLOR_MAP_FOR_DRAW = {
@@ -33,6 +34,7 @@ class BoundingBoxMixin(ABC):
         xmax (int): Maximum x-coordinate of the bounding box
         ymax (int): Maximum y-coordinate of the bounding box
     """
+
     xmin: int = dataclasses.field(metadata={"type": XmlType.ATTRIBUTE})
     ymin: int = dataclasses.field(metadata={"type": XmlType.ATTRIBUTE})
     xmax: int = dataclasses.field(metadata={"type": XmlType.ATTRIBUTE})

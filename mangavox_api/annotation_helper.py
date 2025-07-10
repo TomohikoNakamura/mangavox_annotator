@@ -1,4 +1,4 @@
-"""manga2voice_api.annotation_helper
+"""mangavox_api.annotation_helper
 ===================================
 This module provides helper functions and classes for handling annotations in the MangaVox format.
 It includes functions to convert dictionaries to dataclasses, manage voice annotations, and handle MangaVox annotations.
@@ -13,8 +13,8 @@ from loguru import logger
 from xsdata.formats.dataclass.models.elements import XmlType
 from xsdata.formats.dataclass.parsers import DictDecoder
 
-from manga2voice_api.manga109_ann import Body, Face, Frame, Text
-from manga2voice_api.mangavox_ann import MangaVox, Voice
+from mangavox_api.manga109_ann import Body, Face, Frame, Text
+from mangavox_api.mangavox_ann import MangaVox, Voice
 
 
 def dict_to_dataclass(cls: Type, data: dict) -> Any:

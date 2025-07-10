@@ -4,8 +4,8 @@ from pathlib import Path
 
 import yaml
 
-from manga2voice_api.annotation_helper import MangaVoxForAnnotation
-from manga2voice_api.utils import get_timestamp_in_iso8601_format
+from mangavox_api.annotation_helper import MangaVoxForAnnotation
+from mangavox_api.utils import get_timestamp_in_iso8601_format
 
 
 def parse_args() -> argparse.Namespace:

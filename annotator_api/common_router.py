@@ -15,7 +15,7 @@ from annotator_api.utils import (
     generate_client_uid,
     json_to_hash,
 )
-from manga2voice_api.utils import get_timestamp_in_iso8601_format
+from mangavox_api.utils import get_timestamp_in_iso8601_format
 
 router = APIRouter()
 

@@ -16,7 +16,7 @@ from annotator_api.utils import (
     PreLoadedData,
     apply_change_logs,
 )
-from manga2voice_api.annotation_helper import MangaVoxForAnnotation
+from mangavox_api.annotation_helper import MangaVoxForAnnotation
 
 router = APIRouter()
 

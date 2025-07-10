@@ -22,7 +22,7 @@ from annotator_api.utils import (
     apply_change_logs,
     wrap_audio_data,
 )
-from manga2voice_api.annotation_helper import ExtendedVoice, MangaVoxForAnnotation
+from mangavox_api.annotation_helper import ExtendedVoice, MangaVoxForAnnotation
 
 router = APIRouter()
 
@@ -82,7 +82,9 @@ def _check_and_clip_utterances_from_audio(
 
 def check_and_clip_utterances_from_audio(
     aligned_voices: MangaVoxForAnnotation, audio_raw_data_dict: Dict[str, bytes]
-) -> Tuple[Dict[str, List[str]], Dict[str, Dict[str, Optional[Tuple[numpy.ndarray, int]]]]]:
+) -> Tuple[
+    Dict[str, List[str]], Dict[str, Dict[str, Optional[Tuple[numpy.ndarray, int]]]]
+]:
     """Check and clip utterances from audio data for each character.
 
     Args:
@@ -115,7 +117,9 @@ def check_and_clip_utterances_from_audio(
             clipped_voice_list.append(clipped_voices)  # num. characters x num. voices
 
     voice_existence_dict: Dict[str, List[str]] = dict()
-    resultant_clipped_voices: Dict[str, Dict[str, Optional[Tuple[numpy.ndarray, int]]]] = dict()
+    resultant_clipped_voices: Dict[
+        str, Dict[str, Optional[Tuple[numpy.ndarray, int]]]
+    ] = dict()
     for voice_index in range(len(aligned_voices.voices)):
         voice_id = aligned_voices.voices[voice_index].id
         active_characters = []
@@ -124,7 +128,9 @@ def check_and_clip_utterances_from_audio(
             character_name = character_name_list[character_index]
             if clipped_voice_list[character_index][voice_index] is not None:
                 active_characters.append(character_name)
-                _clipped_voices[character_name] = clipped_voice_list[character_index][voice_index]
+                _clipped_voices[character_name] = clipped_voice_list[character_index][
+                    voice_index
+                ]
         voice_existence_dict[voice_id] = active_characters
         resultant_clipped_voices[voice_id] = _clipped_voices
     return voice_existence_dict, resultant_clipped_voices
@@ -218,11 +224,11 @@ async def get_audio_by_voice_id(
 
     if character_name not in state.pre_loaded_data.clipped_voices[voice_id]:
         raise HTTPException(status_code=404, detail="Silent section")
-    
+
     clipped_voice = state.pre_loaded_data.clipped_voices[voice_id][character_name]
     if clipped_voice is None:
         raise HTTPException(status_code=404, detail="Silent section")
-        
+
     audio_data, sample_rate = clipped_voice
     buffer = wrap_audio_data(audio_data, sample_rate)
     # clip audio data from start to end
@@ -359,4 +365,3 @@ def pre_init(args: argparse.Namespace) -> AppState:
         pre_loaded_data=PRE_LOADED_DATA,
         output_data=OUTPUT_DATA,
     )
-

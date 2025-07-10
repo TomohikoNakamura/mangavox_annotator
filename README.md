@@ -57,7 +57,7 @@ MangaVoxの音声データに対するアノテーションツール．
     uv run python merge_with_manga109_annotations.py data/workspace/${MANGA_TITLE}.xml data/manga109/Manga109_released_2023_12_07/annotations/${MANGA_TITLE}.xml data/workspace/${MANGA_TITLE}_revised.xml
     ```
 
-### アノテーションツール起動
+### アノテーションツール起動 & 実施
 - 1. サーバ起動
     - 簡単起動Bashスクリプトを使用する場合
         ```bash
@@ -110,6 +110,10 @@ MangaVoxの音声データに対するアノテーションツール．
     MODE="full" # または "utt"
     MANGA_TITLE="AkkeraKanjinchou" # 例としてAkkeraKanjinchouを使用
     uv run python update_mangavox_annotations.py --change_log_dir logs/${MODE} data/workspace/${MANGA_TITLE}_revised.xml data/workspace/${MANGA_TITLE}_revised_v2.xml
+    ```
+2. (Optional) XMLファイルがどのように更新されたかのリストを作成
+    ```bash
+    uv run python create_change_list.py data/workspace/${MANGA_TITLE}_revised.xml data/workspace/${MANGA_TITLE}_revised_v2.xml > "data/workspace/${MANGA_TITLE}/change_log_v2-v1.yaml"
     ```
 
 ## アノテーションツールの操作

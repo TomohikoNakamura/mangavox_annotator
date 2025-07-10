@@ -2,18 +2,18 @@ import argparse
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from loguru import logger
+
 from annotator_api.common_router import router as common_router
 from annotator_api.full_router import pre_init as full_pre_init
 from annotator_api.full_router import router as full_router
 from annotator_api.utils import AppState
 from annotator_api.utt_router import pre_init as utt_pre_init
 from annotator_api.utt_router import router as utt_router
-# from annotator_api.utt_router import validate_before_start
 from config import FRONT_END_STATIC_DICT
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from loguru import logger
 
 
 def create_app(args: argparse.Namespace) -> FastAPI:
@@ -25,9 +25,6 @@ def create_app(args: argparse.Namespace) -> FastAPI:
             app.state.app_data = full_pre_init(args)
         elif args.command == "utt":
             app.state.app_data = utt_pre_init(args)
-            # validate_before_start(
-            #     app.state.app_data.pre_loaded_data, app.state.app_data.output_data
-            # )
         else:
             raise ValueError(
                 f"Unknown command: {args.command}. Expected 'full' or 'utterance'."

@@ -31,3 +31,6 @@ ignore = ["E501"]
 
 [tool.setuptools]
 packages = ["mangavox_api"]
+
+[tool.setuptools.package-data]
+"mangavox_api" = ["py.typed"]

@@ -1,5 +1,5 @@
 # MangaVox Annotation Tool
-![logo](./docs/logo.png)
+<img src="./docs/logo.png" alt="Logo image of MangaVox annotator" width="30%;"></img>
 
 MangaVoxの音声データに対するアノテーションツール．
 このツールでは，以下のアノテーションが可能．

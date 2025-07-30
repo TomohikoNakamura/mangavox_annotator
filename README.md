@@ -1,4 +1,6 @@
 # MangaVox Annotation Tool
+![logo](./docs/logo.png)
+
 MangaVoxの音声データに対するアノテーションツール．
 このツールでは，以下のアノテーションが可能．
 - 音声に対するアノテーション（voice要素）の修正

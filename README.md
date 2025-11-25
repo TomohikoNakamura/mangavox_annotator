@@ -204,7 +204,7 @@ MIT License
 |page_index|ページインデックス|&check;|4|
 |actor_id|演技者ID|&check;|08F20|
 |character_id|キャラクタID|&check;|00001d7b|
-|audio_id|音声ファイルID|&check;|Sakisuke|
+|audio_id|音声ファイルID|&check;|08F20_Sakisuke|
 |text_id|Manga109のtext要素のID|-|00001d93|
 |frame_id|Manga109のframe要素のID|-|00001d96|
 |face_id|Manga109のface要素のID|-|00001dc2|

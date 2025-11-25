@@ -257,7 +257,7 @@ def load_audio_files(audio_dir: Path) -> Tuple[List[Dict[str, str]], Dict[str, b
     for filename in tqdm(
         sorted(list(audio_dir.glob("*.flac"))), desc="Loading audio files"
     ):
-        character_name = "_".join(filename.stem.replace(title + "_", "").split("_")[1:])
+        character_name = filename.stem.replace(title + "_", "")
         audio_file_list.append(
             dict(character_name=character_name, filename=str(filename))
         )

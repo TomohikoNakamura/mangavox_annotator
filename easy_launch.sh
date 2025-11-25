@@ -5,7 +5,7 @@ set -ue
 MANGA109_IMAGES_ROOT="data/manga109/Manga109_released_2023_12_07/images"
 MANGA109_XML_ROOT="data/workspace"
 MANGAVOX_VOICE_ROOT="data/manga2voice/voices"
-MANGAVOX_CONCATENATED_VOICE_ROOT="data/manga2voice/concatenated_voices"
+MANGAVOX_CONCATENATED_VOICE_ROOT="data/manga2voice/concatenated_voices_v1"
 
 MANGA_TITLE_LIST=(AkkeraKanjinchou Akuhamu EverydayOsakanaChan HinagikuKenzan LoveHina_vol01 SaladDays_vol01 TaiyouNiSmash YasasiiAkuma)
 
@@ -26,9 +26,9 @@ num=$((num-1))
 MANGA_TITLE=${MANGA_TITLE_LIST[$num]}
 echo "Launching MangaVox annotator: ${MANGA_TITLE} in mode: ${mode}"
 if [ "$mode" == "full" ]; then
-    uv run python launch.py $mode --image_root ${MANGA109_IMAGES_ROOT}/${MANGA_TITLE} ${MANGA109_XML_ROOT}/${MANGA_TITLE}_revised_v5.xml ${MANGAVOX_VOICE_ROOT}/${MANGA_TITLE}_ALL.mp3
+    uv run python launch.py $mode --image_root ${MANGA109_IMAGES_ROOT}/${MANGA_TITLE} ${MANGA109_XML_ROOT}/${MANGA_TITLE}_revised_v7.xml ${MANGAVOX_VOICE_ROOT}/${MANGA_TITLE}_ALL.mp3
 elif [ "$mode" == "utt" ]; then
-    uv run python launch.py $mode --image_root ${MANGA109_IMAGES_ROOT}/${MANGA_TITLE} ${MANGA109_XML_ROOT}/${MANGA_TITLE}_revised_v5.xml ${MANGAVOX_CONCATENATED_VOICE_ROOT}/${MANGA_TITLE}
+    uv run python launch.py $mode --image_root ${MANGA109_IMAGES_ROOT}/${MANGA_TITLE} ${MANGA109_XML_ROOT}/${MANGA_TITLE}_revised_v7.xml ${MANGAVOX_CONCATENATED_VOICE_ROOT}/${MANGA_TITLE}
 else
     echo "Invalid mode: $mode"
     exit 1

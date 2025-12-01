@@ -7,7 +7,19 @@ It includes functions to convert dictionaries to dataclasses, manage voice annot
 from __future__ import annotations
 
 import dataclasses
-from typing import Any, Dict, List, Optional, Set, Type, cast
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Type,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
 
 from loguru import logger
 from xsdata.formats.dataclass.models.elements import XmlType
@@ -30,8 +42,24 @@ def dict_to_dataclass(cls: Type, data: dict) -> Any:
     if not isinstance(data, dict):
         # Basic data types (int, float, str, etc.) are returned as is
         return data
+    
+    # unwrap optional and union types
+    origin = get_origin(cls)
+    if origin is Union:
+        non_none_types = [t for t in get_args(cls) if t is not type(None)]
+        if len(non_none_types) == 1:
+            cls = non_none_types[0]
+        else:
+            return data
 
-    fieldtypes = {f.name: f.type for f in cls.__dataclass_fields__.values()}
+    # if not a dataclass, return as is
+    if not dataclasses.is_dataclass(cls):
+        return data
+
+    # get field types
+    type_hints = get_type_hints(cls)
+    fieldtypes = {f.name: type_hints.get(f.name, Any) for f in dataclasses.fields(cls)}
+    
     return cls(
         **{
             key: dict_to_dataclass(fieldtypes[key], value)

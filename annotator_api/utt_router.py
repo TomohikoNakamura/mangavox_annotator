@@ -313,6 +313,7 @@ def pre_init(args: argparse.Namespace) -> AppState:
 
     # Load audio files
     audio_file_list, audio_raw_data_dict = load_audio_files(args.audio_dir)
+
     # Clip utterances and precompute voice existence
     voice_existence_dict, clipped_audio = check_and_clip_utterances_from_audio(
         aligned_voices, audio_raw_data_dict

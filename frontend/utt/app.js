@@ -156,6 +156,7 @@ class MangaAnnotationTool {
     const audioFilterSelect = document.getElementById("audio_id_filter");
     const actorFilterSelect = document.getElementById("actor_id_filter");
     const characterFilterSelect = document.getElementById("character_id_filter");
+    const spokenTextFilterCheckbox = document.getElementById("spoken_text_filter");
     const noteFilterCheckbox = document.getElementById("annotation_note_filter");
     const commentFilterCheckbox = document.getElementById("annotation_comment_filter");
     // audio IDフィルター用に音声キャラクターを設定
@@ -183,7 +184,7 @@ class MangaAnnotationTool {
       characterFilterSelect.appendChild(option);
     });
     // イベントリスナーを設定
-    [abnormalityFilterCheckbox, voiceFilterInput, audioFilterSelect, actorFilterSelect, characterFilterSelect, noteFilterCheckbox, commentFilterCheckbox].forEach((input) => {
+    [abnormalityFilterCheckbox, voiceFilterInput, audioFilterSelect, actorFilterSelect, characterFilterSelect, spokenTextFilterCheckbox, noteFilterCheckbox, commentFilterCheckbox].forEach((input) => {
       input.addEventListener("input", () => { this.filterAnnotations(); });
     });
     // 初期状態では全てのアノテーションを表示
@@ -642,6 +643,38 @@ class MangaAnnotationTool {
     }
   };
 
+  async deleteAnnotation(annotation) {
+    // アノテーションがnullの場合は何もしない
+    if (annotation == null) {
+      return;
+    }
+    // アノテーションを削除
+    try {
+      const response = await fetch(`http://localhost:8000/delete/annotation/${annotation.id}`);
+      if (response.ok) {
+        console.log("Annotation deleted successfully.");
+      } else {
+        console.error("Failed to delete annotation:", response.statusText);
+        throw new Error(`Failed to delete annotation: ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error("Error deleting annotation:", error);
+      throw error;
+    }
+    // アノテーション全体を再取得（サーバーと同期）
+    const previousAnnotationIndex = this.annotations.findIndex((candidate) => candidate.id === annotation.id);
+    await Promise.all([
+      this.imageManager.loadImageAnnotation(annotation.page_index != null ? annotation.page_index : this.imageManager.state.currentPage),
+      this.loadVoiceAnnotation()
+    ]);
+    // filterを再適用
+    this.filterAnnotations();
+    // 次のアノテーションを選択
+    const newAnnotationIndex = Math.min(previousAnnotationIndex, this.annotations.length - 1);
+    await this.loadAudio(this.annotations[newAnnotationIndex].id);
+    this.loadVoiceAndImageAnnotationsAfterAudioLoaded(newAnnotationIndex);
+  }
+
   /**
    * アノテーションを保存する
    * @param {Object} annotation - 保存するアノテーションオブジェクト
@@ -717,6 +750,7 @@ class MangaAnnotationTool {
     const audioFilterSelect = document.getElementById("audio_id_filter");
     const actorFilterSelect = document.getElementById("actor_id_filter");
     const characterFilterSelect = document.getElementById("character_id_filter");
+    const spokenTextFilterCheckbox = document.getElementById("spoken_text_filter");
     const noteFilterCheckbox = document.getElementById("annotation_note_filter");
     const commentFilterCheckbox = document.getElementById("annotation_comment_filter");
     // フィルタの値を取得
@@ -725,6 +759,7 @@ class MangaAnnotationTool {
     const audioValue = audioFilterSelect.value;
     const actorValue = actorFilterSelect.value;
     const characterValue = characterFilterSelect.value;
+    const hasNoSpokenTextOnly = spokenTextFilterCheckbox.checked;
     const hasNoteOnly = noteFilterCheckbox.checked;
     const hasCommentOnly = commentFilterCheckbox.checked;
     // 正規表現でチェック
@@ -768,6 +803,10 @@ class MangaAnnotationTool {
       // character filterでのチェック
       if (characterValue) {
         matchesCharacter = annotation.character_id === characterValue;
+      }
+      // spoken text filterでのチェック
+      if (hasNoSpokenTextOnly) {
+        matchesVoice = annotation.text.trim() === "";
       }
       // note filterでのチェック
       if (hasNoteOnly) {
@@ -922,6 +961,13 @@ class MangaAnnotationTool {
     // アノテーションをリセット（再取得）
     document.getElementById("resetAnnotation").addEventListener("click", async () => {
       await this.resetAnnotation(this.annotations[this.state.currentVoiceIndex]);
+    });
+    // アノテーションを削除
+    document.getElementById("deleteAnnotation").addEventListener("click", async () => {
+      const confirmation = confirm("Are you sure you want to delete this annotation?");
+      if (confirmation) {
+        await this.deleteAnnotation(this.annotations[this.state.currentVoiceIndex]);
+      }
     });
 
     // canvas上でマウス移動時にバウンディングボックスを検出

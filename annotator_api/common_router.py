@@ -7,6 +7,7 @@ from typing import Dict, List, Optional
 import yaml
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, Response, StreamingResponse
+from loguru import logger
 
 from annotator_api.utils import (
     AppState,

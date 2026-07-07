@@ -199,7 +199,7 @@ class MangaAnnotationTool {
     if (voice_id) {
       // voice_idが指定されている場合は、その音声キャラクターのみを読み込む
       try {
-        const response = await fetch(`http://localhost:8000/audio_characters/${voice_id}`);
+        const response = await fetch(`/audio_characters/${voice_id}`);
         if (!response.ok) {
           throw new Error(`Failed to fetch audio characters: ${response.statusText}`);
         }
@@ -212,7 +212,7 @@ class MangaAnnotationTool {
     } else {
       // voice_idが指定されていない場合は、全ての音声キャラクターを読み込む
       try {
-        const response = await fetch(`http://localhost:8000/audio_characters`);
+        const response = await fetch(`/audio_characters`);
         if (!response.ok) {
           throw new Error(`Failed to fetch audio characters: ${response.statusText}`);
         }
@@ -270,7 +270,7 @@ class MangaAnnotationTool {
     await this.loadAudioCharacters(voiceId);
     for (const audioCharacter of this.activeAudioCharacters) {
       const waveSurfer = this.initializeWaveSurfer(audioCharacter);
-      await waveSurfer.load(`http://localhost:8000/audio/${audioCharacter}/${voiceId}`);
+      await waveSurfer.load(`/audio/${audioCharacter}/${voiceId}`);
       this.waveSurferInstances.push(waveSurfer);
     }
   }
@@ -352,7 +352,7 @@ class MangaAnnotationTool {
    */
   async loadVoiceAnnotation(targetVoiceID = "all") {
     try {
-      const response = await fetch(`http://localhost:8000/annotations/voice/${targetVoiceID}`);
+      const response = await fetch(`/annotations/voice/${targetVoiceID}`);
       if (!response.ok) {
         throw new Error(`Failed to fetch annotations: ${response.statusText}`);
       }
@@ -381,7 +381,7 @@ class MangaAnnotationTool {
    */
   async loadCharacters() {
     try {
-      const response = await fetch("http://localhost:8000/annotations/characters");
+      const response = await fetch("/annotations/characters");
       if (!response.ok) {
         throw new Error(`Failed to fetch characters: ${response.statusText}`);
       }
@@ -399,7 +399,7 @@ class MangaAnnotationTool {
    */
   async loadActors() {
     try {
-      const response = await fetch("http://localhost:8000/actors");
+      const response = await fetch("/actors");
       if (!response.ok) {
         throw new Error(`Failed to fetch actors: ${response.statusText}`);
       }
@@ -650,7 +650,7 @@ class MangaAnnotationTool {
     }
     // アノテーションを削除
     try {
-      const response = await fetch(`http://localhost:8000/delete/annotation/${annotation.id}`);
+      const response = await fetch(`/delete/annotation/${annotation.id}`);
       if (response.ok) {
         console.log("Annotation deleted successfully.");
       } else {
@@ -695,7 +695,7 @@ class MangaAnnotationTool {
     try {
       let payload = JSON.parse(JSON.stringify(annotation));
       payload["uid"] = this.imageManager.stats.uid;
-      const response = await fetch("http://localhost:8000/update/annotation", {
+      const response = await fetch("/update/annotation", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -964,10 +964,10 @@ class MangaAnnotationTool {
     });
     // アノテーションを削除
     document.getElementById("deleteAnnotation").addEventListener("click", async () => {
-      const confirmation = confirm("Are you sure you want to delete this annotation?");
-      if (confirmation) {
-        await this.deleteAnnotation(this.annotations[this.state.currentVoiceIndex]);
-      }
+      // const confirmation = confirm("Are you sure you want to delete this annotation?");
+      // if (confirmation) {
+      await this.deleteAnnotation(this.annotations[this.state.currentVoiceIndex]);
+      // }
     });
 
     // canvas上でマウス移動時にバウンディングボックスを検出

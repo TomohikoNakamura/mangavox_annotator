@@ -184,7 +184,7 @@ class MangaAnnotationTool {
     if (voice_id) {
       // voice_idが指定されている場合は、その音声キャラクターのみを読み込む
       try {
-        const response = await fetch(`http://localhost:8000/audio_characters/${voice_id}`);
+        const response = await fetch(`/audio_characters/${voice_id}`);
         if (!response.ok) {
           throw new Error(`Failed to fetch audio characters: ${response.statusText}`);
         }
@@ -197,7 +197,7 @@ class MangaAnnotationTool {
     } else {
       // voice_idが指定されていない場合は、全ての音声キャラクターを読み込む
       try {
-        const response = await fetch(`http://localhost:8000/audio_characters`);
+        const response = await fetch(`/audio_characters`);
         if (!response.ok) {
           throw new Error(`Failed to fetch audio characters: ${response.statusText}`);
         }
@@ -217,7 +217,7 @@ class MangaAnnotationTool {
     try {
       // WaveSurferの初期化
       this.initializeWaveSurfer();
-      await this.waveSurfer.load("http://localhost:8000/audio");
+      await this.waveSurfer.load("/audio");
     } catch (error) {
       console.error("Error loading audio:", error);
       throw error;
@@ -315,7 +315,7 @@ class MangaAnnotationTool {
    */
   async loadVoiceAnnotation(targetVoiceID = "all") {
     try {
-      const response = await fetch(`http://localhost:8000/annotations/voice/${targetVoiceID}`);
+      const response = await fetch(`/annotations/voice/${targetVoiceID}`);
       if (!response.ok) {
         throw new Error(`Failed to fetch annotations: ${response.statusText}`);
       }
@@ -352,7 +352,7 @@ class MangaAnnotationTool {
    */
   async loadCharacters() {
     try {
-      const response = await fetch("http://localhost:8000/annotations/characters");
+      const response = await fetch("/annotations/characters");
       if (!response.ok) {
         throw new Error(`Failed to fetch characters: ${response.statusText}`);
       }
@@ -370,7 +370,7 @@ class MangaAnnotationTool {
    */
   async loadActors() {
     try {
-      const response = await fetch("http://localhost:8000/actors");
+      const response = await fetch("/actors");
       if (!response.ok) {
         throw new Error(`Failed to fetch actors: ${response.statusText}`);
       }
@@ -917,7 +917,7 @@ class MangaAnnotationTool {
     try {
       let payload = JSON.parse(JSON.stringify(region.annotation));
       payload["uid"] = this.imageManager.stats.uid;
-      const response = await fetch("http://localhost:8000/update/annotation", {
+      const response = await fetch("/update/annotation", {
         method: "POST", // またはPUT
         headers: {
           "Content-Type": "application/json",

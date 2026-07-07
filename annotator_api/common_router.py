@@ -466,6 +466,15 @@ async def update_annotation(annotation: dict, request: Request) -> Response:
             state.pre_loaded_data.aligned_voices.update_assigned(
                 page_index=annotation["page_index"]
             )
+            # UTT mode serves cached per-voice clips. Time edits invalidate the
+            # edited voice's clip and active audio_id candidates.
+            if any(change["key"] in {"start", "end"} for change in change_logs):
+                try:
+                    from annotator_api.utt_router import refresh_clipped_voice_cache
+
+                    refresh_clipped_voice_cache(state, annotation["id"])
+                except ValueError as exc:
+                    raise HTTPException(status_code=400, detail=str(exc)) from exc
         else:
             # If no change is made, return 204 No Content
             return Response(status_code=204)

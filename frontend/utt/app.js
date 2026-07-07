@@ -110,6 +110,10 @@ class MangaAnnotationTool {
     // キャラクターの初期化
     this.audioCharacters = []; // 音声アノテーションに登場するキャラクターのリスト
     this.activeAudioCharacters = []; // 現在選択されている音声アノテーションと，発話時刻が重複しているものがあるキャラクターのリスト
+    this.audioClipMetadata = {}; // character_name -> clipped audio metadata
+    this.audioCandidateRefreshTimer = null;
+    this.audioCandidateRefreshRequestId = 0;
+    this.areEditElementsEnabled = false;
     this.characters = []; // 全てのキャラクターのリスト（画像のみに登場するものも含む）
     this.actors = []; // 演技者のリスト
     // WaveSurferのインスタンスを作成
@@ -244,11 +248,135 @@ class MangaAnnotationTool {
   }
 
   /**
-   * 音声を読み込む
-   * @param {string} voiceId 
-   * @returns 
+   * start/end preview values for APIs that support unsaved time edits.
+   * Passing no values keeps the backend on the saved cached clip path.
+   * @param {number|null} start
+   * @param {number|null} end
+   * @returns {string}
    */
-  async loadAudio(voiceId) {
+  buildTimeQuery(start = null, end = null) {
+    if (start == null || end == null) {
+      return "";
+    }
+    const params = new URLSearchParams({
+      start: String(start),
+      end: String(end),
+    });
+    return `?${params.toString()}`;
+  }
+
+  /**
+   * Load clip metadata for the current saved or preview time range.
+   *
+   * Metadata maps source-audio absolute seconds to relative WaveSurfer region
+   * seconds and also defines the active audio_id candidates for the range.
+   * @param {string} voiceId
+   * @param {number|null} start
+   * @param {number|null} end
+   */
+  async loadAudioClipMetadata(voiceId, start = null, end = null) {
+    const response = await fetch(`/audio_clip_meta/${voiceId}${this.buildTimeQuery(start, end)}`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch audio clip metadata: ${response.statusText}`);
+    }
+    const data = await response.json();
+    this.audioClipMetadata = {};
+    this.activeAudioCharacters = data.characters.map((metadata) => {
+      this.audioClipMetadata[metadata.character_name] = metadata;
+      return metadata.character_name;
+    });
+  }
+
+  /**
+   * Clear audio_id when the selected speaker is no longer active.
+   *
+   * Expanding or shrinking start/end can add or remove active character audio.
+   * Keeping an out-of-range audio_id would make the annotation look valid while
+   * no waveform exists for that speaker.
+   * @param {Object|null} annotation
+   */
+  reconcileAudioIdWithActiveCharacters(annotation) {
+    if (!annotation || annotation.audio_id == null) {
+      return;
+    }
+    if (!this.activeAudioCharacters.includes(annotation.audio_id)) {
+      annotation.audio_id = null;
+      annotation.isChanged = true;
+    }
+  }
+
+  /**
+   * Rebuild the audio_id selector from the current active audio candidates.
+   * @param {Object|null} annotation
+   */
+  updateAudioIdDropdown(annotation) {
+    const selectElement = document.getElementById("audio_id");
+    if (!selectElement) {
+      return;
+    }
+    selectElement.innerHTML = "";
+    const emptyOption = document.createElement("option");
+    emptyOption.value = "null";
+    emptyOption.text = "";
+    selectElement.add(emptyOption);
+    this.activeAudioCharacters.forEach((audioCharacter) => {
+      const option = document.createElement("option");
+      option.value = audioCharacter;
+      option.text = audioCharacter;
+      selectElement.add(option);
+    });
+    if (annotation && annotation.audio_id && this.activeAudioCharacters.includes(annotation.audio_id)) {
+      selectElement.value = annotation.audio_id;
+    } else {
+      selectElement.value = "null";
+    }
+  }
+
+  /**
+   * Debounce candidate refresh while a region is being resized.
+   *
+   * Dragging should update the audio_id choices quickly, but rebuilding every
+   * waveform while the resize handle is moving makes the interaction unstable.
+   * The full waveform reload is done on update-end instead.
+   * @param {Object|null} annotation
+   */
+  scheduleAudioCandidateRefresh(annotation) {
+    if (!annotation) {
+      return;
+    }
+    if (this.audioCandidateRefreshTimer) {
+      clearTimeout(this.audioCandidateRefreshTimer);
+    }
+    const requestId = ++this.audioCandidateRefreshRequestId;
+    this.audioCandidateRefreshTimer = setTimeout(async () => {
+      if (this.state.isLoading) {
+        return;
+      }
+      try {
+        await this.loadAudioClipMetadata(annotation.id, annotation.start, annotation.end);
+        if (requestId !== this.audioCandidateRefreshRequestId) {
+          return;
+        }
+        this.reconcileAudioIdWithActiveCharacters(annotation);
+        this.updateAudioIdDropdown(annotation);
+        document.getElementById("current_audio_id").textContent = annotation.audio_id != null ? annotation.audio_id : "Empty";
+        document.getElementById("annotation_details_head").style.backgroundColor = this.isVoiceAnnotationNormal(annotation) ? "" : this.styles.toBeFixed;
+      } catch (error) {
+        console.warn("Error refreshing audio candidates:", error);
+      }
+    }, 300);
+  }
+
+  /**
+   * 音声を読み込む
+   * @param {string} voiceId
+   * @param {Object} options
+   * @returns
+   */
+  async loadAudio(voiceId, options = {}) {
+    const previewStart = options.start ?? null;
+    const previewEnd = options.end ?? null;
+
     // wavesurfer instanceを破棄
     if (this.waveSurferInstances.length > 0) {
       this.waveSurferInstances.forEach((waveSurfer) => {
@@ -258,6 +386,7 @@ class MangaAnnotationTool {
       waveformContainer.innerHTML = "";
       this.waveSurferInstances = [];
       this.activeAudioCharacters = [];
+      this.audioClipMetadata = {};
     }
 
     if (voiceId == null) {
@@ -266,18 +395,19 @@ class MangaAnnotationTool {
       return;
     }
 
-    // 音声のロードを非同期で処理
-    await this.loadAudioCharacters(voiceId);
+    await this.loadAudioClipMetadata(voiceId, previewStart, previewEnd);
+    this.reconcileAudioIdWithActiveCharacters(this.annotations[this.state.currentVoiceIndex]);
+    const query = this.buildTimeQuery(previewStart, previewEnd);
     for (const audioCharacter of this.activeAudioCharacters) {
       const waveSurfer = this.initializeWaveSurfer(audioCharacter);
-      await waveSurfer.load(`/audio/${audioCharacter}/${voiceId}`);
+      await waveSurfer.load(`/audio/${audioCharacter}/${voiceId}${query}`);
       this.waveSurferInstances.push(waveSurfer);
     }
   }
 
   /**
    * wavesurferを初期化する
-   * @param {string} audioCharacter 
+   * @param {string} audioCharacter
    * @returns {WaveSurfer}
    */
   initializeWaveSurfer(audioCharacter) {
@@ -320,15 +450,26 @@ class MangaAnnotationTool {
 
     // 対象区間にリージョンを設定
     waveSurfer.on("ready", () => {
+      const metadata = this.audioClipMetadata[audioCharacter];
+      if (!metadata) {
+        return;
+      }
       const regionsPlugin = waveSurfer.getActivePlugins().find(
         (plugin) => plugin instanceof WaveSurfer.Regions
       );
-      regionsPlugin.addRegion({
-        start: 0.5, // 開始位置はmain2.pyで指定済み (500 ms)
-        end: waveSurfer.getDuration() - 0.5, // 終了位置はmain2.pyで指定済み (500 ms)
+      const region = regionsPlugin.addRegion({
+        start: metadata.region_start,
+        end: metadata.region_end,
         color: this.styles.normal,
         drag: false,
-        resize: false
+        resize: document.getElementById("voice_edit_mode_toggle").checked && this.areEditElementsEnabled
+      });
+      region.audioCharacter = audioCharacter;
+      region.on("update", () => {
+        this.updateAnnotationTimeFromRegion(region);
+      });
+      region.on("update-end", async () => {
+        await this.reloadCurrentAudioPreview();
       });
     });
 
@@ -343,6 +484,79 @@ class MangaAnnotationTool {
       this.setEditElementsEnabled(true);
     });
     return waveSurfer;
+  }
+
+  /**
+   * Convert a resized clip-relative region back to absolute annotation times.
+   * @param {WaveSurfer.Region} region
+   */
+  updateAnnotationTimeFromRegion(region) {
+    const annotation = this.annotations[this.state.currentVoiceIndex];
+    const metadata = this.audioClipMetadata[region.audioCharacter];
+    if (!annotation || !metadata) {
+      return;
+    }
+    annotation.start = this.roundTime(metadata.clip_start + region.start);
+    annotation.end = this.roundTime(metadata.clip_start + region.end);
+    annotation.isChanged = true;
+    document.getElementById("start").value = annotation.start;
+    document.getElementById("end").value = annotation.end;
+    document.getElementById("current_start").textContent = `${annotation.start}s`;
+    document.getElementById("current_end").textContent = `${annotation.end}s`;
+    document.getElementById("annotation_details_head").style.backgroundColor = this.isVoiceAnnotationNormal(annotation) ? "" : this.styles.toBeFixed;
+    this.scheduleAudioCandidateRefresh(annotation);
+  }
+
+  /**
+   * Reload waveforms after a time edit has been committed.
+   *
+   * This uses unsaved start/end values for preview; the backend cache is updated
+   * only after the annotation is saved.
+   */
+  async reloadCurrentAudioPreview() {
+    const annotation = this.annotations[this.state.currentVoiceIndex];
+    if (!annotation || this.state.isLoading) {
+      return;
+    }
+    this.audioCandidateRefreshRequestId++;
+    if (this.audioCandidateRefreshTimer) {
+      clearTimeout(this.audioCandidateRefreshTimer);
+      this.audioCandidateRefreshTimer = null;
+    }
+    this.state.isLoading = true;
+    this.setEditElementsEnabled(false);
+    try {
+      await this.loadAudio(annotation.id, { start: annotation.start, end: annotation.end });
+      this.writeAnnotationDetails(annotation);
+      this.setOverlayState(false, "");
+    } catch (error) {
+      console.error("Error reloading audio preview:", error);
+      this.setOverlayState(true, error.message);
+    } finally {
+      this.setEditElementsEnabled(true);
+      this.state.isLoading = false;
+    }
+  }
+
+  /**
+   * Enable region resizing only when both edit mode and form editing are active.
+   */
+  toggleVoiceEditability() {
+    const voiceEditModeToggle = document.getElementById("voice_edit_mode_toggle");
+    if (!voiceEditModeToggle) {
+      return;
+    }
+    this.waveSurferInstances.forEach((waveSurfer) => {
+      const regionsPlugin = waveSurfer.getActivePlugins().find(
+        (plugin) => plugin instanceof WaveSurfer.Regions
+      );
+      if (!regionsPlugin) {
+        return;
+      }
+      for (const region of regionsPlugin.regions) {
+        region.setOptions({ resize: voiceEditModeToggle.checked && this.areEditElementsEnabled });
+      }
+    });
   }
 
   /**
@@ -448,9 +662,20 @@ class MangaAnnotationTool {
    * @param {boolean} enabled - 有効化するかどうか
    */
   setEditElementsEnabled(enabled) {
-    ["actor_id", "spoken_text", "audio_id", "text_id", "page_index", "frame_id", "body_id", "face_id", "character_id", "annotation_comment"].forEach((elementId) => {
+    this.areEditElementsEnabled = enabled;
+    ["start", "end", "actor_id", "spoken_text", "audio_id", "text_id", "page_index", "frame_id", "body_id", "face_id", "character_id", "annotation_comment"].forEach((elementId) => {
       document.getElementById(elementId).disabled = !enabled;
     });
+    this.toggleVoiceEditability();
+  }
+
+  /**
+   * Round editable annotation times to milliseconds for stable display/API use.
+   * @param {number} value
+   * @returns {number}
+   */
+  roundTime(value) {
+    return Math.round(value * 1000) / 1000;
   }
 
   /**
@@ -521,6 +746,10 @@ class MangaAnnotationTool {
           document.getElementById(voiceKey).value = targetAnnotation[voiceKey].text || "";
         } else {
           document.getElementById(`current_${voiceKey}`).textContent = targetAnnotation[voiceKey] + "s";
+          const inputElement = document.getElementById(voiceKey);
+          if (inputElement) {
+            inputElement.value = targetAnnotation[voiceKey] === "None" ? "" : targetAnnotation[voiceKey];
+          }
         }
       });
 
@@ -591,6 +820,9 @@ class MangaAnnotationTool {
       // キャラクタ名のプルダウンメニューリストを更新，audio_idのプルダウンメニューリストを更新
       [[this.characters, "character_id"], [this.activeAudioCharacters, "audio_id"], [this.actors, "actor_id"]].forEach(([candidates, voiceKey]) => {
         document.getElementById(voiceKey).innerHTML = "";
+        if (voiceKey == "audio_id") {
+          document.getElementById(voiceKey).add(createOption("null", ""));
+        }
         candidates.forEach((candidate) => {
           if (voiceKey == "character_id") {
             document.getElementById(voiceKey).add(createOption(candidate.id, candidate.name));
@@ -718,6 +950,7 @@ class MangaAnnotationTool {
       this.loadVoiceAnnotation(annotation.id)
     ]);
     const value = this.annotations.findIndex((candidate) => candidate.id === annotation.id);
+    await this.loadAudio(annotation.id);
     this.loadVoiceAndImageAnnotationsAfterAudioLoaded(value);
   }
 
@@ -738,6 +971,9 @@ class MangaAnnotationTool {
       this.imageManager.loadImageAnnotation(annotation.page_index != null ? annotation.page_index : this.imageManager.state.currentPage),
       this.loadVoiceAnnotation(annotation.id)
     ]);
+    const value = this.annotations.findIndex((candidate) => candidate.id === annotation.id);
+    await this.loadAudio(annotation.id);
+    this.loadVoiceAndImageAnnotationsAfterAudioLoaded(value);
   }
 
   /**
@@ -936,6 +1172,27 @@ class MangaAnnotationTool {
       };
       document.getElementById(elementId).addEventListener("input", redrawImageAnnotation);
     });
+
+    // start/end は確定時に音声を再切り出しする
+    ["start", "end"].forEach((elementId) => {
+      document.getElementById(elementId).addEventListener("change", async () => {
+        const annotation = this.annotations[this.state.currentVoiceIndex];
+        if (!annotation) {
+          return;
+        }
+        const start = Number(document.getElementById("start").value);
+        const end = Number(document.getElementById("end").value);
+        if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || start >= end) {
+          this.setOverlayState(true, "Invalid start/end time range.");
+          this.writeAnnotationDetails(annotation);
+          return;
+        }
+        annotation.start = this.roundTime(start);
+        annotation.end = this.roundTime(end);
+        annotation.isChanged = true;
+        await this.reloadCurrentAudioPreview();
+      });
+    });
     {
       // クリック時に選択されたリージョンの状態をトグル
       ["frame_id", "face_id", "body_id"].forEach((elementId) => {
@@ -1067,6 +1324,10 @@ class MangaAnnotationTool {
     window.addEventListener("resize", () => {
       this.imageManager.updateCanvasSize();
       this.imageManager.drawImageAnnotations([this.annotations[this.state.currentVoiceIndex]]);
+    });
+
+    document.getElementById("voice_edit_mode_toggle").addEventListener("change", () => {
+      this.toggleVoiceEditability();
     });
   }
 }

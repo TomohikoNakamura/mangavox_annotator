@@ -3,8 +3,10 @@ const HELP_DESCRIPTION = `
   <h5>Help: Keyboard Shortcuts</h5>
   <ul>
     <li><strong>Space:</strong> Play/Pause audio</li>
-    <li><strong>Press n:</strong> Select next voice</li>
-    <li><strong>Press b:</strong> Select previous voice</li>
+    <li><strong>Press n:</strong> Select next voice in the current filter</li>
+    <li><strong>Press b:</strong> Select previous voice in the current filter</li>
+    <li><strong>Press Shift+n:</strong> Select next voice ignoring the current filter</li>
+    <li><strong>Press Shift+b:</strong> Select previous voice ignoring the current filter</li>
     <li><strong>Press s:</strong> Save the selected voice</li>
     <li><strong>Press r:</strong> Reset the selected voice</li>
     <li><strong>Click the canvas:</strong> Select the image annotation containing the coordinate position of the mouse when a voice is selected. If the position is included in multiple annotations, the minimum-area annotation is selected.</li>
@@ -46,11 +48,12 @@ class MangaAnnotationTool {
    * アノテーションの状態管理にプロキシを利用．
    */
   setupState() {
+    this.stateTarget = {
+      currentVoiceIndex: -1, // 現在の音声アノテーションのインデックス
+      isLoading: false, // ロード中かどうかのフラグ
+    };
     this.state = new Proxy(
-      {
-        currentVoiceIndex: -1, // 現在の音声アノテーションのインデックス
-        isLoading: false, // ロード中かどうかのフラグ
-      },
+      this.stateTarget,
       {
         set: (target, key, value) => {
           if (key == "currentVoiceIndex") {
@@ -462,7 +465,7 @@ class MangaAnnotationTool {
         end: metadata.region_end,
         color: this.styles.normal,
         drag: false,
-        resize: document.getElementById("voice_edit_mode_toggle").checked && this.areEditElementsEnabled
+        resize: this.isVoiceRegionEditable(audioCharacter)
       });
       region.audioCharacter = audioCharacter;
       region.on("update", () => {
@@ -493,7 +496,7 @@ class MangaAnnotationTool {
   updateAnnotationTimeFromRegion(region) {
     const annotation = this.annotations[this.state.currentVoiceIndex];
     const metadata = this.audioClipMetadata[region.audioCharacter];
-    if (!annotation || !metadata) {
+    if (!annotation || !metadata || annotation.audio_id !== region.audioCharacter) {
       return;
     }
     annotation.start = this.roundTime(metadata.clip_start + region.start);
@@ -539,6 +542,27 @@ class MangaAnnotationTool {
   }
 
   /**
+   * Return whether the waveform region for the given audio_id can be resized.
+   *
+   * Voice edit mode edits annotation start/end, so only the currently selected
+   * audio_id should expose resize handles. Other overlapping speakers remain
+   * visible as context but are read-only.
+   * @param {string} audioCharacter
+   * @returns {boolean}
+   */
+  isVoiceRegionEditable(audioCharacter) {
+    const voiceEditModeToggle = document.getElementById("voice_edit_mode_toggle");
+    const annotation = this.annotations[this.state.currentVoiceIndex];
+    return Boolean(
+      voiceEditModeToggle
+      && voiceEditModeToggle.checked
+      && this.areEditElementsEnabled
+      && annotation
+      && annotation.audio_id === audioCharacter
+    );
+  }
+
+  /**
    * Enable region resizing only when both edit mode and form editing are active.
    */
   toggleVoiceEditability() {
@@ -554,9 +578,20 @@ class MangaAnnotationTool {
         return;
       }
       for (const region of regionsPlugin.regions) {
-        region.setOptions({ resize: voiceEditModeToggle.checked && this.areEditElementsEnabled });
+        region.setOptions({ resize: this.isVoiceRegionEditable(region.audioCharacter) });
       }
     });
+  }
+
+  /**
+   * Update current voice index after manual annotation loading.
+   *
+   * This avoids triggering the Proxy setter, which would save and reload the
+   * previously selected annotation again.
+   * @param {number} value
+   */
+  setCurrentVoiceIndexSilently(value) {
+    this.stateTarget.currentVoiceIndex = value;
   }
 
   /**
@@ -901,8 +936,18 @@ class MangaAnnotationTool {
     ]);
     // filterを再適用
     this.filterAnnotations();
-    // 次のアノテーションを選択
-    const newAnnotationIndex = Math.min(previousAnnotationIndex, this.annotations.length - 1);
+    if (this.activeAnnotationIndices.length === 0) {
+      this.setCurrentVoiceIndexSilently(-1);
+      await this.loadAudio(null);
+      this.imageManager.drawImageAnnotations([]);
+      this.writeAnnotationDetails(null);
+      this.setEditElementsEnabled(false);
+      this.setOverlayState(true, "No annotations match the current filter.");
+      return;
+    }
+    // 次のアノテーションをフィルタ済み候補から選択
+    const newAnnotationIndex = this.activeAnnotationIndices.find((index) => index >= previousAnnotationIndex) ?? this.activeAnnotationIndices[this.activeAnnotationIndices.length - 1];
+    this.setCurrentVoiceIndexSilently(newAnnotationIndex);
     await this.loadAudio(this.annotations[newAnnotationIndex].id);
     this.loadVoiceAndImageAnnotationsAfterAudioLoaded(newAnnotationIndex);
   }
@@ -1090,12 +1135,13 @@ class MangaAnnotationTool {
       }
       // 次の音声アノテーションを選択
       if (event.code === "KeyN") {
-        // 次の音声アノテーションを選択
-        if (this.annotations.length !== this.activeAnnotationIndices.length) {
-          // アクティブなアノテーションが全てのアノテーションでない場合
-          // this.state.currentVoiceIndexよりも大きくかつ，this.activeAnnotationIndicesの中で最小のインデックスを取得
+        if (this.annotations.length === 0 || (!event.shiftKey && this.activeAnnotationIndices.length === 0)) {
+          this.setOverlayState(true, "No annotations match the current filter.");
+          return;
+        }
+        if (!event.shiftKey && this.annotations.length !== this.activeAnnotationIndices.length) {
+          // フィルタ中は次のフィルタ該当候補へ移動する。Shift+n は一時的にフィルタを無視する。
           const nextIndex = this.activeAnnotationIndices.filter((index) => index > this.state.currentVoiceIndex).reduce((a, b) => Math.min(a, b), Infinity);
-          // 次の音声アノテーションがない場合は最初の音声アノテーションを選択
           this.state.currentVoiceIndex = nextIndex !== Infinity ? nextIndex : this.activeAnnotationIndices[0];
         } else {
           this.state.currentVoiceIndex = this.state.currentVoiceIndex + 1;
@@ -1103,14 +1149,15 @@ class MangaAnnotationTool {
       }
       // 前の音声アノテーションを選択
       if (event.code === "KeyB") {
-        if (this.annotations.length !== this.activeAnnotationIndices.length) {
-          // アクティブなアノテーションが全てのアノテーションでない場合
-          // this.state.currentVoiceIndexよりも小さくかつ，this.activeAnnotationIndicesの中で最大のインデックスを取得
+        if (this.annotations.length === 0 || (!event.shiftKey && this.activeAnnotationIndices.length === 0)) {
+          this.setOverlayState(true, "No annotations match the current filter.");
+          return;
+        }
+        if (!event.shiftKey && this.annotations.length !== this.activeAnnotationIndices.length) {
+          // フィルタ中は前のフィルタ該当候補へ移動する。Shift+b は一時的にフィルタを無視する。
           const prevIndex = this.activeAnnotationIndices.filter((index) => index < this.state.currentVoiceIndex).reduce((a, b) => Math.max(a, b), -Infinity);
-          // 前の音声アノテーションがない場合は最後の音声アノテーションを選択
           this.state.currentVoiceIndex = prevIndex !== -Infinity ? prevIndex : this.activeAnnotationIndices[this.activeAnnotationIndices.length - 1];
         } else {
-          // 前の音声アノテーションを選択
           this.state.currentVoiceIndex = this.state.currentVoiceIndex - 1;
         }
       }
@@ -1151,6 +1198,10 @@ class MangaAnnotationTool {
           this.annotations[this.state.currentVoiceIndex][elementId] = commaSeparatedValues || null;
         } else {
           this.annotations[this.state.currentVoiceIndex][elementId] = event.target.value == "null" ? null : event.target.value;
+          if (elementId === "audio_id") {
+            this.toggleVoiceEditability();
+            document.getElementById("current_audio_id").textContent = this.annotations[this.state.currentVoiceIndex].audio_id != null ? this.annotations[this.state.currentVoiceIndex].audio_id : "Empty";
+          }
         }
         this.imageManager.drawImageAnnotations([this.annotations[this.state.currentVoiceIndex]]);
         this.annotations[this.state.currentVoiceIndex]["isChanged"] = true;

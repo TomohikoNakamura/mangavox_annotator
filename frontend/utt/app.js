@@ -336,6 +336,36 @@ class MangaAnnotationTool {
   }
 
   /**
+   * Find the WaveSurfer instance for an active audio_id.
+   * @param {string} audioCharacter
+   * @returns {WaveSurfer|null}
+   */
+  getWaveSurferForAudioCharacter(audioCharacter) {
+    const audioCharacterIndex = this.activeAudioCharacters.findIndex((candidate) => candidate === audioCharacter);
+    if (audioCharacterIndex === -1) {
+      return null;
+    }
+    return this.waveSurferInstances[audioCharacterIndex] ?? null;
+  }
+
+  /**
+   * Play only the annotated region inside the padded clipped audio.
+   *
+   * UTT mode deliberately keeps padding in the waveform for context, but Space
+   * playback should stay within the target region so surrounding audio is not
+   * confused with the annotation itself.
+   * @param {string} audioCharacter
+   */
+  playAudioCharacterRegion(audioCharacter) {
+    const waveSurfer = this.getWaveSurferForAudioCharacter(audioCharacter);
+    const metadata = this.audioClipMetadata[audioCharacter];
+    if (!waveSurfer || !metadata) {
+      return;
+    }
+    waveSurfer.play(metadata.region_start, metadata.region_end);
+  }
+
+  /**
    * Debounce candidate refresh while a region is being resized.
    *
    * Dragging should update the audio_id choices quickly, but rebuilding every
@@ -1124,11 +1154,12 @@ class MangaAnnotationTool {
             if (this.annotations[this.state.currentVoiceIndex].audio_id) {
               // audio_idが指定されていれば，その音声のみ再生
               const selectedAudioCharacter = this.annotations[this.state.currentVoiceIndex].audio_id;
-              const selectedAudioCharacterIndex = this.activeAudioCharacters.findIndex((candidate) => candidate === selectedAudioCharacter);
-              this.waveSurferInstances[selectedAudioCharacterIndex].play();
+              this.playAudioCharacterRegion(selectedAudioCharacter);
             } else {
               // audio_idが指定されてなければ，全ての音声を再生
-              this.waveSurferInstances.forEach((waveSurfer) => waveSurfer.play());
+              this.activeAudioCharacters.forEach((audioCharacter) => {
+                this.playAudioCharacterRegion(audioCharacter);
+              });
             }
           }
         }

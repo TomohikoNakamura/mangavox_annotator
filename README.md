@@ -56,7 +56,7 @@ MangaVoxの音声データに対するアノテーションツール．
     - アノテーションした漫画作品のXMLファイルで以下を全て実施
     ```bash
     MANGA_TITLE="AkkeraKanjinchou" # 例としてAkkeraKanjinchouを使用
-    uv run python merge_with_manga109_annotations.py data/workspace/${MANGA_TITLE}.xml data/manga109/Manga109_released_2023_12_07/annotations/${MANGA_TITLE}.xml data/workspace/${MANGA_TITLE}_revised.xml
+    uv run python -m scripts.merge_with_manga109_annotations data/workspace/${MANGA_TITLE}.xml data/manga109/Manga109_released_2023_12_07/annotations/${MANGA_TITLE}.xml data/workspace/${MANGA_TITLE}_revised.xml
     ```
 
 ### アノテーションツール起動 & 実施
@@ -111,12 +111,18 @@ MangaVoxの音声データに対するアノテーションツール．
     ```bash
     MODE="full" # または "utt"
     MANGA_TITLE="AkkeraKanjinchou" # 例としてAkkeraKanjinchouを使用
-    uv run python update_mangavox_annotations.py --change_log_dir logs/${MODE} data/workspace/${MANGA_TITLE}_revised.xml data/workspace/${MANGA_TITLE}_revised_v2.xml
+    uv run python -m scripts.update_mangavox_annotations --change_log_dir logs/${MODE} data/workspace/${MANGA_TITLE}_revised.xml data/workspace/${MANGA_TITLE}_revised_v2.xml
     ```
 2. (Optional) XMLファイルがどのように更新されたかのリストを作成
     ```bash
-    uv run python create_change_list.py data/workspace/${MANGA_TITLE}_revised.xml data/workspace/${MANGA_TITLE}_revised_v2.xml > "data/workspace/${MANGA_TITLE}/change_log_v2-v1.yaml"
+    uv run python -m scripts.create_change_list data/workspace/${MANGA_TITLE}_revised.xml data/workspace/${MANGA_TITLE}_revised_v2.xml "data/workspace/${MANGA_TITLE}/change_log_v2-v1.yaml"
     ```
+
+### 統計量の生成
+Appendixの統計表を再生成する場合は以下を実行．
+```bash
+uv run python -m scripts.generate_annotation_stats
+```
 
 ## アノテーションツールの操作
 
@@ -156,16 +162,31 @@ MangaVoxの音声データに対するアノテーションツール．
 ## Authors
 - [Tomohiko Nakamura](https://github.com/TomohikoNakamura)
 
-## License
-MIT License
+## Citation
+このツールを使う際は、以下の論文を引用してください。
 
-## Acknowledgements
-?????
+```bibtex
+@inproceedings{STakamichi2026ICASSP,
+    author = "Takamichi, Shinnosuke and Nakamura, Tomohiko and Suda, Hitoshi and Fukayama, Satoru and Ogata, Jun",
+    booktitle = "Proceedings of IEEE International Conference on Acoustics, Speech, and Signal Processing (ICASSP)",
+    title = "MangaVox: {Dataset} of acted voices aligned with manga images towards computer understanding of audio comics",
+    pages = "19467--19471",
+    month = "May",
+    year = "2026",
+    doi = "10.1109/ICASSP55912.2026.11463396"
+}
+```
+
+## License
+このツールのライセンスはMIT Licenseです。
+MangaVoxのライセンスは別ですのでご注意ください。
+Manga109のデータは、Manga109のライセンスに従って利用してください。
+
 
 # Appendix
 
 ## 作品一覧
-|作品名 | 年代 | ジャンル | 作品の時間長 [h] | 発話時間の合計 [h] | キャラ | 演技者数（男性）| 演技者数（女性） | 発話数 |
+| 作品名 | 年代 | ジャンル | 作品の時間長 [h] | 発話時間の合計 [h] | キャラ | 演技者数（男性）| 演技者数（女性） | 発話数 |
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | ラブひな | 1990s | ラブコメ | 1.8 | 1.3 | 12 | 1 | 2 | 2272 |
 | ひなぎく見参！一本桜花町編 | 2000s | 恋愛 | 1.3 | 0.8 | 14 | 1 | 3 | 1279 |
@@ -178,19 +199,20 @@ MIT License
 |  |  |  |  |  |  |  |  |  |
 | 8作品 | 2種の年代 | 7ジャンル | 14.0 | 9.0 | 191 | 9 | 9 | 14158|
 
-## 発話とManga109のframe, text, frame, face, body要素との対応付け数
-|作品名 | 対応付けられたframe要素の数 | 対応付けられたtext要素の数 | 対応付けられたface要素の数 | 対応付けられたbody要素の数 |
+
+## 発話とManga109のframe, text, face, body要素との対応付け数
+| 作品名 | 対応付けられたframe要素の数 | 対応付けられたtext要素の数 | 対応付けられたface要素の数 | 対応付けられたbody要素の数 |
 |:---:|:---:|:---:|:---:|:---:|
-| ラブひな | 1943 | 2249 | 1597 | 1910 |
-| ひなぎく見参！一本桜花町編 | 947 | 1216 | 645 | 934 |
-| サラダデイズ | 1330 | 1679 | 912 | 1249 |
-| エヴリデイおさかなちゃん | 1926 | 2287 | 608 | 921 |
-| やさしい悪魔 | 1587 | 1670 | 950 | 1075 |
-| 太陽にスマッシュ！ | 928 | 1182 | 743 | 853 |
-| あっけら貫刃帖 | 1349 | 1604 | 818 | 1018 |
-| あくはむ | 1431 | 1861 | 1250 | 1623 |
-|  |  |  |  |  |  |  |  |  |
-| 8作品 | 11441 | 13748 | 7523 | 9583 |
+| ラブひな | 2248 | 1943 | 1598 | 1911 |
+| ひなぎく見参！一本桜花町編 | 1230 | 947 | 647 | 936 |
+| サラダデイズ | 1700 | 1331 | 913 | 1251 |
+| エヴリデイおさかなちゃん | 2287 | 1926 | 608 | 929 |
+| やさしい悪魔 | 1677 | 1587 | 952 | 1077 |
+| 太陽にスマッシュ！ | 1192 | 928 | 743 | 853 |
+| あっけら貫刃帖 | 1653 | 1349 | 820 | 1020 |
+| あくはむ | 1861 | 1431 | 1251 | 1619 |
+|  |  |  |  |  |
+| 8作品 | 13848 | 11442 | 7532 | 9596 |
 
 
 ## voice要素の一覧表

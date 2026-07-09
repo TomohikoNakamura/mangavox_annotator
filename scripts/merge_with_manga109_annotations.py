@@ -3,6 +3,7 @@ from pathlib import Path
 
 from loguru import logger
 
+from mangavox_api.annotation_helper import MangaVoxForAnnotation
 from mangavox_api.manga109_ann import Manga109
 from mangavox_api.mangavox_ann import MangaVox
 
@@ -58,6 +59,7 @@ if __name__ == "__main__":
     # Update the assigned attribute of the voices
     manga_vox.update_assigned(page_index=None)  # Update all pages
 
-    # Save the merged annotations back to a file
-    manga_vox.write(args.output_path)
+    # Save the merged annotations in the annotation XML format.
+    annotated_manga_vox = MangaVoxForAnnotation.from_mangavox(manga_vox)
+    annotated_manga_vox.write(args.output_path)
     logger.info(f"Merged annotations saved to {args.output_path}")

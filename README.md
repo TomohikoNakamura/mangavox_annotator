@@ -3,14 +3,14 @@
 
 MangaVoxの音声データに対するアノテーションツール．
 このツールでは，以下のアノテーションが可能．
-- 音声に対するアノテーション（voice要素）の修正
+- 音声に対するアノテーション（アノテーション用XMLのaligned_voice要素）の修正
     - 発話の開始・終了時刻の修正
     - 発話のテキストの修正
     - 発話のキャラクタ・演技者の修正
     - 音声ファイルIDの修正
 - 漫画画像上のバウンディングボックスとの対応付け
-    - 漫画画像上のバウンディングボックス（frame, text, face, body要素）とvoice要素との対応付け
-    - 漫画画像のページ番号とvoice要素の対応付け
+    - 漫画画像上のバウンディングボックス（frame, text, face, body要素）とaligned_voice要素との対応付け
+    - 漫画画像のページ番号とaligned_voice要素の対応付け
 
 ## 画面例
 ### 全体音声アノテーションモード（full mode）
@@ -49,14 +49,14 @@ MangaVoxの音声データに対するアノテーションツール．
     - 画像データは`data/manga109/Manga109_released_2023_12_07/images/<manga_title>`に配置
     - メタデータのXMLファイルは`data/manga109/Manga109_released_2023_12_07/annotations/<manga_title>.xml`として配置
 4. `mangavox`のデータの準備
-    - 音声データは`data/manga2voice/concatenated_voices`ディレクトリに配置
+    - 発話単位の音声データは`data/manga2voice/concatenated_voices`ディレクトリに配置
         - 全ての音声が混合された音声ファイルは，FLACからMP3に変換したものも用意し，`data/manga2voice/voices/<manga_title>_ALL.mp3`として配置
-    - メタデータのXMLファイルは`data/workspace`ディレクトリに配置
+    - ダウンロードしたメタデータのXMLファイル（`voice`要素を含む公開形式）は`data/workspace/${MANGA_TITLE}.xml`として配置
 5. MangaVoxのメタデータをManga109のメタデータと結合．
     - アノテーションした漫画作品のXMLファイルで以下を全て実施
     ```bash
     MANGA_TITLE="AkkeraKanjinchou" # 例としてAkkeraKanjinchouを使用
-    uv run python -m scripts.merge_with_manga109_annotations data/workspace/${MANGA_TITLE}.xml data/manga109/Manga109_released_2023_12_07/annotations/${MANGA_TITLE}.xml data/workspace/${MANGA_TITLE}_revised.xml
+    uv run python -m scripts.merge_with_manga109_annotations data/workspace/${MANGA_TITLE}.xml data/manga109/Manga109_released_2023_12_07/annotations/${MANGA_TITLE}.xml data/workspace/${MANGA_TITLE}_v1.xml
     ```
 
 ### アノテーションツール起動 & 実施
@@ -89,12 +89,12 @@ MangaVoxの音声データに対するアノテーションツール．
             - fullモードの場合
                 ```bash
                 MANGA_TITLE="AkkeraKanjinchou"
-                python launch.py full --image_root data/manga109/Manga109_released_2023_12_07/images/${MANGA_TITLE} data/workspace/${MANGA_TITLE}_revised.xml data/manga2voice/voices/${MANGA_TITLE}_ALL.mp3
+                python launch.py full --image_root data/manga109/Manga109_released_2023_12_07/images/${MANGA_TITLE} data/workspace/${MANGA_TITLE}_v1.xml data/manga2voice/voices/${MANGA_TITLE}_ALL.mp3
                 ```
             - uttモードの場合
                 ```bash
                 MANGA_TITLE="AkkeraKanjinchou"
-                python launch.py utt --image_root data/manga109/Manga109_released_2023_12_07/images/${MANGA_TITLE} data/workspace/${MANGA_TITLE}_revised.xml data/manga2voice/concatenated_voices/${MANGA_TITLE}
+                python launch.py utt --image_root data/manga109/Manga109_released_2023_12_07/images/${MANGA_TITLE} data/workspace/${MANGA_TITLE}_v1.xml data/manga2voice/concatenated_voices/${MANGA_TITLE}
                 ```
     - オプション
         - 第一引数：モード
@@ -111,17 +111,17 @@ MangaVoxの音声データに対するアノテーションツール．
     ```bash
     MODE="full" # または "utt"
     MANGA_TITLE="AkkeraKanjinchou" # 例としてAkkeraKanjinchouを使用
-    uv run python -m scripts.update_mangavox_annotations --change_log_dir logs/${MODE} data/workspace/${MANGA_TITLE}_revised.xml data/workspace/${MANGA_TITLE}_revised_v2.xml
+    uv run python -m scripts.update_mangavox_annotations --change_log_dir logs/${MODE} data/workspace/${MANGA_TITLE}_v1.xml data/workspace/${MANGA_TITLE}_v2.xml
     ```
 2. (Optional) XMLファイルがどのように更新されたかのリストを作成
     ```bash
-    uv run python -m scripts.create_change_list data/workspace/${MANGA_TITLE}_revised.xml data/workspace/${MANGA_TITLE}_revised_v2.xml "data/workspace/${MANGA_TITLE}/change_log_v2-v1.yaml"
+    uv run python -m scripts.create_change_list data/workspace/${MANGA_TITLE}_v1.xml data/workspace/${MANGA_TITLE}_v2.xml "data/workspace/${MANGA_TITLE}/change_log_v2-v1.yaml"
     ```
 
 ### 統計量の生成
 Appendixの統計表を再生成する場合は以下を実行．
 ```bash
-uv run python -m scripts.generate_annotation_stats
+uv run python -m scripts.generate_annotation_stats data/workspace/*_v2.xml --audio-root data/manga2voice/concatenated_voices
 ```
 
 ## アノテーションツールの操作
@@ -215,7 +215,7 @@ Manga109のデータは、Manga109のライセンスに従って利用してく�
 | 8作品 | 13848 | 11442 | 7532 | 9596 |
 
 
-## voice要素の一覧表
+## 発話要素（voice/aligned_voice）の主な属性一覧表
 |属性名|内容|必須か否か|値の例|
 |:---:|:---:|:---:|:---:|
 |id|発話固有ID|&check;|60000027|

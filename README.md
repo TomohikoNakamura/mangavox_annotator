@@ -62,7 +62,8 @@ MangaVoxの音声データに対するアノテーションツール．
           --overwrite
         ```
         - 出力は`data/manga2voice/voices/<manga_title>_ALL.flac`として作成される
-        - `*_Gaya.flac`はガヤとして扱い，デフォルトで`-12 dB`に下げる
+        - `*_Gaya.flac`はガヤとして扱い，通常はデフォルトで`-40 dB`に下げる
+        - `config.py`の`GAYA_UTT_GAINS_IN_DB`にあるvoice id区間は，前後に少しマージンを付けて指定dBで混合する
     - ダウンロードしたメタデータのXMLファイル（`voice`要素を含む公開形式）は`data/workspace/${MANGA_TITLE}.xml`として配置
 5. MangaVoxのメタデータをManga109のメタデータと結合．
     - `config.py`の`MANGA_TITLES`に含まれる全作品について，公開形式のXMLをアノテーション形式の`*_v1.xml`に変換

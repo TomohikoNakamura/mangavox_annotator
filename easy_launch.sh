@@ -8,9 +8,8 @@ MANGA109_XML_SUFFIX="_v1"
 MANGAVOX_VOICE_ROOT="data/manga2voice/voices"
 MANGAVOX_CONCATENATED_VOICE_ROOT="data/manga2voice/concatenated_voices"
 
-mapfile -t MANGA_TITLE_LIST < <(
-    uv run python -c "from config import MANGA_TITLES; print(*MANGA_TITLES, sep='\\n')"
-)
+# Manga titles do not contain whitespace, so this also works with macOS Bash 3.2.
+MANGA_TITLE_LIST=($(uv run python -c "from config import MANGA_TITLES; print(*MANGA_TITLES)"))
 
 mode=$1
 if [ "$mode" != "full" ] && [ "$mode" != "utt" ]; then

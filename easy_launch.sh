@@ -8,18 +8,20 @@ MANGA109_XML_SUFFIX="_v1"
 MANGAVOX_VOICE_ROOT="data/manga2voice/voices"
 MANGAVOX_CONCATENATED_VOICE_ROOT="data/manga2voice/concatenated_voices"
 
-MANGA_TITLE_LIST=(AkkeraKanjinchou Akuhamu EverydayOsakanaChan HinagikuKenzan LoveHina_vol01 SaladDays_vol01 TaiyouNiSmash YasasiiAkuma)
+mapfile -t MANGA_TITLE_LIST < <(
+    uv run python -c "from config import MANGA_TITLES; print(*MANGA_TITLES, sep='\\n')"
+)
 
 mode=$1
 if [ "$mode" != "full" ] && [ "$mode" != "utt" ]; then
     echo "Usage: $0 <mode> <manga_number>"
     echo "mode: full or utt"
-    echo "manga_number: 1-8 (1 for AkkeraKanjinchou, 2 for Akuhamu, ..., 8 for YasasiiAkuma)"
+    echo "manga_number: 1-${#MANGA_TITLE_LIST[@]}"
     exit 1
 fi
 num=$2
-if [ $num -gt 8 ]; then
-    echo "Invalid argument"
+if ! [[ "$num" =~ ^[0-9]+$ ]] || [ "$num" -lt 1 ] || [ "$num" -gt "${#MANGA_TITLE_LIST[@]}" ]; then
+    echo "Invalid manga_number: $num"
     exit 1
 fi
 

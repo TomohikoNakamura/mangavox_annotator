@@ -53,11 +53,13 @@ MangaVoxの音声データに対するアノテーションツール．
         - 全ての音声が混合された音声ファイルは，FLACからMP3に変換したものも用意し，`data/manga2voice/voices/<manga_title>_ALL.mp3`として配置
     - ダウンロードしたメタデータのXMLファイル（`voice`要素を含む公開形式）は`data/workspace/${MANGA_TITLE}.xml`として配置
 5. MangaVoxのメタデータをManga109のメタデータと結合．
-    - アノテーションした漫画作品のXMLファイルで以下を全て実施
+    - `config.py`の`MANGA_TITLES`に含まれる全作品について，公開形式のXMLをアノテーション形式の`*_v1.xml`に変換
     ```bash
-    MANGA_TITLE="AkkeraKanjinchou" # 例としてAkkeraKanjinchouを使用
-    uv run python -m scripts.merge_with_manga109_annotations data/workspace/${MANGA_TITLE}.xml data/manga109/Manga109_released_2023_12_07/annotations/${MANGA_TITLE}.xml data/workspace/${MANGA_TITLE}_v1.xml
+    uv run python -m scripts.merge_with_manga109_annotations --all
     ```
+    - 既存の`*_v1.xml`を更新する場合は`--overwrite`を指定
+    - 一部の作品だけ実施する場合は，例えば`uv run python -m scripts.merge_with_manga109_annotations --all --titles AkkeraKanjinchou HinagikuKenzan`
+    - 単作品だけ従来どおり指定する場合は，`uv run python -m scripts.merge_with_manga109_annotations data/workspace/${MANGA_TITLE}.xml data/manga109/Manga109_released_2023_12_07/annotations/${MANGA_TITLE}.xml data/workspace/${MANGA_TITLE}_v1.xml`
 
 ### アノテーションツール起動 & 実施
 - 1. サーバ起動

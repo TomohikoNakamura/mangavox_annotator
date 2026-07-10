@@ -35,7 +35,7 @@ def parse_args() -> Namespace:
         "--titles",
         nargs="+",
         choices=MANGA_TITLES,
-        help="Titles to process with --all. Defaults to all configured titles.",
+        help="Titles to process. Defaults to all configured titles.",
     )
     parser.add_argument(
         "--workspace-root",
@@ -60,13 +60,16 @@ def parse_args() -> Namespace:
         help="Print planned batch operations without writing files.",
     )
     args = parser.parse_args()
-    if args.all:
-        if args.paths:
-            parser.error("PATH arguments cannot be used with --all.")
-    elif args.titles or args.overwrite or args.dry_run:
-        parser.error("--titles, --overwrite, and --dry-run require --all.")
-    elif len(args.paths) != 3:
-        parser.error("Specify three PATH arguments for one title, or use --all.")
+    if args.paths:
+        if len(args.paths) != 3:
+            parser.error("Specify three PATH arguments for one title.")
+        if args.all or args.titles or args.overwrite or args.dry_run:
+            parser.error(
+                "Batch options cannot be combined with single-title PATH arguments."
+            )
+    else:
+        # No paths means batch mode. --all remains accepted for compatibility.
+        args.all = True
     return args
 
 

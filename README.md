@@ -50,15 +50,27 @@ MangaVoxの音声データに対するアノテーションツール．
     - メタデータのXMLファイルは`data/manga109/Manga109_released_2023_12_07/annotations/<manga_title>.xml`として配置
 4. `mangavox`のデータの準備
     - 発話単位の音声データは`data/manga2voice/concatenated_voices`ディレクトリに配置
-        - 全ての音声が混合された音声ファイルは，FLACからMP3に変換したものも用意し，`data/manga2voice/voices/<manga_title>_ALL.mp3`として配置
+    - 各トラックを混合した音声ファイルを作成
+        - `config.py`の`MANGA_TITLES`に含まれる全作品を処理する場合
+        ```bash
+        uv run python -m scripts.mix_mangavox_audio
+        ```
+        - 現在のデータが`concatenated_voices_v2`にある場合は，入力ルートを指定
+        ```bash
+        uv run python -m scripts.mix_mangavox_audio \
+          --audio-root data/manga2voice/concatenated_voices_v2 \
+          --overwrite
+        ```
+        - 出力は`data/manga2voice/voices/<manga_title>_ALL.flac`として作成される
+        - `*_Gaya.flac`はガヤとして扱い，デフォルトで`-12 dB`に下げる
     - ダウンロードしたメタデータのXMLファイル（`voice`要素を含む公開形式）は`data/workspace/${MANGA_TITLE}.xml`として配置
 5. MangaVoxのメタデータをManga109のメタデータと結合．
     - `config.py`の`MANGA_TITLES`に含まれる全作品について，公開形式のXMLをアノテーション形式の`*_v1.xml`に変換
     ```bash
-    uv run python -m scripts.merge_with_manga109_annotations --all
+    uv run python -m scripts.merge_with_manga109_annotations
     ```
     - 既存の`*_v1.xml`を更新する場合は`--overwrite`を指定
-    - 一部の作品だけ実施する場合は，例えば`uv run python -m scripts.merge_with_manga109_annotations --all --titles AkkeraKanjinchou HinagikuKenzan`
+    - 一部の作品だけ実施する場合は，例えば`uv run python -m scripts.merge_with_manga109_annotations --titles AkkeraKanjinchou HinagikuKenzan`
     - 単作品だけ従来どおり指定する場合は，`uv run python -m scripts.merge_with_manga109_annotations data/workspace/${MANGA_TITLE}.xml data/manga109/Manga109_released_2023_12_07/annotations/${MANGA_TITLE}.xml data/workspace/${MANGA_TITLE}_v1.xml`
 
 ### アノテーションツール起動 & 実施
@@ -85,13 +97,13 @@ MangaVoxの音声データに対するアノテーションツール．
         - `<image_root>`：漫画画像のディレクトリのパス
         - `<xml_path>`：アノテーション用のXMLファイルのパス
         - `<audio_path>`：音声ファイルのパス
-            - `full`モードの場合は音声ファイルのパス（例: `data/manga2voice/voices/AkkeraKanjinchou_ALL.mp3`）
+            - `full`モードの場合は音声ファイルのパス（例: `data/manga2voice/voices/AkkeraKanjinchou_ALL.flac`）
             - `utt`モードの場合は音声ファイルのディレクトリのパス（例: `data/manga2voice/concatenated_voices/AkkeraKanjinchou`）
         - 例
             - fullモードの場合
                 ```bash
                 MANGA_TITLE="AkkeraKanjinchou"
-                python launch.py full --image_root data/manga109/Manga109_released_2023_12_07/images/${MANGA_TITLE} data/workspace/${MANGA_TITLE}_v1.xml data/manga2voice/voices/${MANGA_TITLE}_ALL.mp3
+                python launch.py full --image_root data/manga109/Manga109_released_2023_12_07/images/${MANGA_TITLE} data/workspace/${MANGA_TITLE}_v1.xml data/manga2voice/voices/${MANGA_TITLE}_ALL.flac
                 ```
             - uttモードの場合
                 ```bash

@@ -28,7 +28,7 @@ num=$((num-1))
 MANGA_TITLE=${MANGA_TITLE_LIST[$num]}
 echo "Launching MangaVox annotator: ${MANGA_TITLE} in mode: ${mode}"
 if [ "$mode" == "full" ]; then
-    uv run python launch.py $mode --image_root ${MANGA109_IMAGES_ROOT}/${MANGA_TITLE} ${MANGA109_XML_ROOT}/${MANGA_TITLE}${MANGA109_XML_SUFFIX}.xml ${MANGAVOX_VOICE_ROOT}/${MANGA_TITLE}_ALL.mp3
+    uv run python launch.py $mode --image_root ${MANGA109_IMAGES_ROOT}/${MANGA_TITLE} ${MANGA109_XML_ROOT}/${MANGA_TITLE}${MANGA109_XML_SUFFIX}.xml ${MANGAVOX_VOICE_ROOT}/${MANGA_TITLE}_ALL.flac
 elif [ "$mode" == "utt" ]; then
     uv run python launch.py $mode --image_root ${MANGA109_IMAGES_ROOT}/${MANGA_TITLE} ${MANGA109_XML_ROOT}/${MANGA_TITLE}${MANGA109_XML_SUFFIX}.xml ${MANGAVOX_CONCATENATED_VOICE_ROOT}/${MANGA_TITLE}
 else

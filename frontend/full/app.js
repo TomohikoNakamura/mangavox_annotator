@@ -3,8 +3,10 @@ const HELP_DESCRIPTION = `
   <h5>Help: Keyboard Shortcuts</h5>
   <ul>
     <li><strong>Space:</strong> Play/Pause audio</li>
-    <li><strong>Press n:</strong> Select next region</li>
-    <li><strong>Press b:</strong> Select previous region</li>
+    <li><strong>Press n:</strong> Select next region in the current filter</li>
+    <li><strong>Press b:</strong> Select previous region in the current filter</li>
+    <li><strong>Press Shift+n:</strong> Select next region ignoring the current filter</li>
+    <li><strong>Press Shift+b:</strong> Select previous region ignoring the current filter</li>
     <li><strong>Press s:</strong> Save the selected region</li>
     <li><strong>Press r:</strong> Reset the selected region</li>
     <li><strong>Mouse wheel:</strong> Zoom in/out the waveform</li>
@@ -119,8 +121,8 @@ class MangaAnnotationTool {
     } catch (error) {
       this.setOverlayState(true, error.message); // エラーメッセージを表示
     }
-    // // フィルターを初期化
-    // this.initializeFilter();
+    // フィルターを初期化
+    this.initializeFilter();
     // イベントリスナーを設定
     this.setupEventListeners();
     this.imageManager.setupEventListeners();
@@ -132,49 +134,50 @@ class MangaAnnotationTool {
     this.setOverlayState(false, "");
   }
 
-  // /** TODO
-  //  * フィルタ処理を行うための初期化
-  //  */
-  // initializeFilter() {
-  //   // フィルタ関連の要素を取得
-  //   const abnormalityFilterCheckbox = document.getElementById("abnormality_filter");
-  //   const voiceFilterInput = document.getElementById("voice_filter");
-  //   const audioFilterSelect = document.getElementById("audio_id_filter");
-  //   const actorFilterSelect = document.getElementById("actor_id_filter");
-  //   const characterFilterSelect = document.getElementById("character_id_filter");
-  //   const noteFilterCheckbox = document.getElementById("annotation_note_filter");
-  //   const commentFilterCheckbox = document.getElementById("annotation_comment_filter");
-  //   // audio IDフィルター用に音声キャラクターを設定
-  //   audioFilterSelect.innerHTML = '<option value="">All</option>';
-  //   this.audioCharacters.forEach((audioCharacter) => {
-  //     const option = document.createElement("option");
-  //     option.value = audioCharacter;
-  //     option.text = audioCharacter;
-  //     audioFilterSelect.appendChild(option);
-  //   });
-  //   // actor IDフィルター用に俳優を設定
-  //   actorFilterSelect.innerHTML = '<option value="">All</option>';
-  //   this.actors.forEach((actor) => {
-  //     const option = document.createElement("option");
-  //     option.value = actor;
-  //     option.text = actor;
-  //     actorFilterSelect.appendChild(option);
-  //   });
-  //   // character IDフィルター用にキャラクターを設定
-  //   characterFilterSelect.innerHTML = '<option value="">All</option>';
-  //   this.characters.forEach((character) => {
-  //     const option = document.createElement("option");
-  //     option.value = character.id;
-  //     option.text = character.name;
-  //     characterFilterSelect.appendChild(option);
-  //   });
-  //   // イベントリスナーを設定
-  //   [abnormalityFilterCheckbox, voiceFilterInput, audioFilterSelect, actorFilterSelect, characterFilterSelect, noteFilterCheckbox, commentFilterCheckbox].forEach((input) => {
-  //     input.addEventListener("input", () => { this.filterAnnotations(); });
-  //   });
-  //   // 初期状態では全てのアノテーションを表示
-  //   this.activeAnnotationIndices = this.annotations.map((annotation, index) => index);
-  // }
+  /**
+   * フィルタ処理を行うための初期化
+   */
+  initializeFilter() {
+    // フィルタ関連の要素を取得
+    const abnormalityFilterCheckbox = document.getElementById("abnormality_filter");
+    const voiceFilterInput = document.getElementById("voice_filter");
+    const audioFilterSelect = document.getElementById("audio_id_filter");
+    const actorFilterSelect = document.getElementById("actor_id_filter");
+    const characterFilterSelect = document.getElementById("character_id_filter");
+    const noteFilterCheckbox = document.getElementById("annotation_note_filter");
+    const commentFilterCheckbox = document.getElementById("annotation_comment_filter");
+    // audio IDフィルター用に音声キャラクターを設定
+    audioFilterSelect.innerHTML = '<option value="">All</option>';
+    this.audioCharacters.forEach((audioCharacter) => {
+      const option = document.createElement("option");
+      option.value = audioCharacter;
+      option.text = audioCharacter;
+      audioFilterSelect.appendChild(option);
+    });
+    // actor IDフィルター用に俳優を設定
+    actorFilterSelect.innerHTML = '<option value="">All</option>';
+    this.actors.forEach((actor) => {
+      const option = document.createElement("option");
+      option.value = actor;
+      option.text = actor;
+      actorFilterSelect.appendChild(option);
+    });
+    // character IDフィルター用にキャラクターを設定
+    characterFilterSelect.innerHTML = '<option value="">All</option>';
+    this.characters.forEach((character) => {
+      const option = document.createElement("option");
+      option.value = character.id;
+      option.text = character.name;
+      characterFilterSelect.appendChild(option);
+    });
+    // イベントリスナーを設定
+    [abnormalityFilterCheckbox, voiceFilterInput, audioFilterSelect, actorFilterSelect, characterFilterSelect, noteFilterCheckbox, commentFilterCheckbox].forEach((input) => {
+      input.addEventListener("input", () => { this.filterAnnotations(); });
+    });
+    // 初期状態では全てのアノテーションを表示
+    this.activeAnnotationIndices = this.annotations.map((annotation, index) => index);
+    this.filterAnnotations();
+  }
 
   /**
    * 音声キャラクターを読み込む
@@ -184,7 +187,7 @@ class MangaAnnotationTool {
     if (voice_id) {
       // voice_idが指定されている場合は、その音声キャラクターのみを読み込む
       try {
-        const response = await fetch(`http://localhost:8000/audio_characters/${voice_id}`);
+        const response = await fetch(`/audio_characters/${voice_id}`);
         if (!response.ok) {
           throw new Error(`Failed to fetch audio characters: ${response.statusText}`);
         }
@@ -197,7 +200,7 @@ class MangaAnnotationTool {
     } else {
       // voice_idが指定されていない場合は、全ての音声キャラクターを読み込む
       try {
-        const response = await fetch(`http://localhost:8000/audio_characters`);
+        const response = await fetch(`/audio_characters`);
         if (!response.ok) {
           throw new Error(`Failed to fetch audio characters: ${response.statusText}`);
         }
@@ -217,7 +220,7 @@ class MangaAnnotationTool {
     try {
       // WaveSurferの初期化
       this.initializeWaveSurfer();
-      await this.waveSurfer.load("http://localhost:8000/audio");
+      await this.waveSurfer.load("/audio");
     } catch (error) {
       console.error("Error loading audio:", error);
       throw error;
@@ -315,7 +318,7 @@ class MangaAnnotationTool {
    */
   async loadVoiceAnnotation(targetVoiceID = "all") {
     try {
-      const response = await fetch(`http://localhost:8000/annotations/voice/${targetVoiceID}`);
+      const response = await fetch(`/annotations/voice/${targetVoiceID}`);
       if (!response.ok) {
         throw new Error(`Failed to fetch annotations: ${response.statusText}`);
       }
@@ -352,7 +355,7 @@ class MangaAnnotationTool {
    */
   async loadCharacters() {
     try {
-      const response = await fetch("http://localhost:8000/annotations/characters");
+      const response = await fetch("/annotations/characters");
       if (!response.ok) {
         throw new Error(`Failed to fetch characters: ${response.statusText}`);
       }
@@ -370,7 +373,7 @@ class MangaAnnotationTool {
    */
   async loadActors() {
     try {
-      const response = await fetch("http://localhost:8000/actors");
+      const response = await fetch("/actors");
       if (!response.ok) {
         throw new Error(`Failed to fetch actors: ${response.statusText}`);
       }
@@ -859,19 +862,39 @@ class MangaAnnotationTool {
   }
 
   /**
+   * Return regions that should be navigated by n/b.
+   * @param {boolean} ignoreFilter
+   * @returns {WaveSurfer.Region[]}
+   */
+  getNavigableAudioRegions(ignoreFilter = false) {
+    const regions = this.getRegionsPlugin().regions;
+    if (ignoreFilter || !this.activeAnnotationIndices) {
+      return regions;
+    }
+    const activeAnnotationIndexSet = new Set(this.activeAnnotationIndices);
+    return regions.filter((region) => {
+      const annotationIndex = this.annotations.findIndex((annotation) => annotation.id === region.annotation.id);
+      return activeAnnotationIndexSet.has(annotationIndex);
+    });
+  }
+
+  /**
    * 次の音声リージョンを選択
    * @param {boolean} reversed - 逆方向に選択するかどうか
+   * @param {boolean} ignoreFilter - フィルタを無視して全リージョンから選択するかどうか
    * @returns {WaveSurfer.Region|null} - 選択された音声リージョン
    */
-  selectNextAudioRegion(reversed = false) {
-    const regionsPlugin = this.getRegionsPlugin();
+  selectNextAudioRegion(reversed = false, ignoreFilter = false) {
+    const allRegions = this.getRegionsPlugin().regions;
+    const regions = this.getNavigableAudioRegions(ignoreFilter);
 
-    // すべてのリージョンを取得
-    const regions = regionsPlugin.regions;
-
+    if (allRegions.length === 0) {
+      this.setOverlayState(true, "No regions available.");
+      return null;
+    }
     if (regions.length === 0) {
-      console.warn("No regions available.");
-      return;
+      this.setOverlayState(true, "No annotations match the current filter.");
+      return null;
     }
 
     // 現在選択中のリージョンのインデックスを取得
@@ -886,7 +909,6 @@ class MangaAnnotationTool {
         return distance < 0 ? Number.MAX_VALUE : distance;
       });
       nextIndex = distances.indexOf(Math.min(...distances));
-      // nextIndex = reversed ? regions.length - 1 : 0;
     } else {
       // 次または前のインデックスを計算
       if (reversed) {
@@ -899,7 +921,9 @@ class MangaAnnotationTool {
     }
 
     // 選択されたリージョンを更新
+    this.setOverlayState(false, "");
     this.state.selectedRegion = regions[nextIndex];
+    return regions[nextIndex];
   }
 
   /**
@@ -917,7 +941,7 @@ class MangaAnnotationTool {
     try {
       let payload = JSON.parse(JSON.stringify(region.annotation));
       payload["uid"] = this.imageManager.stats.uid;
-      const response = await fetch("http://localhost:8000/update/annotation", {
+      const response = await fetch("/update/annotation", {
         method: "POST", // またはPUT
         headers: {
           "Content-Type": "application/json",
@@ -964,86 +988,86 @@ class MangaAnnotationTool {
     this.selectAudioRegion(region);
   }
 
-  // /** TODO:
-  //  * アノテーションをフィルタリングする
-  //  */
-  // filterAnnotations() {
-  //   // フィルタ関連の要素を取得
-  //   const abnormalityFilterCheckbox = document.getElementById("abnormality_filter");
-  //   const voiceFilterInput = document.getElementById("voice_filter");
-  //   const audioFilterSelect = document.getElementById("audio_id_filter");
-  //   const actorFilterSelect = document.getElementById("actor_id_filter");
-  //   const characterFilterSelect = document.getElementById("character_id_filter");
-  //   const noteFilterCheckbox = document.getElementById("annotation_note_filter");
-  //   const commentFilterCheckbox = document.getElementById("annotation_comment_filter");
-  //   // フィルタの値を取得
-  //   const isAbnormalityOnly = abnormalityFilterCheckbox.checked;
-  //   const voiceFilterValue = voiceFilterInput.value.trim();
-  //   const audioValue = audioFilterSelect.value;
-  //   const actorValue = actorFilterSelect.value;
-  //   const characterValue = characterFilterSelect.value;
-  //   const hasNoteOnly = noteFilterCheckbox.checked;
-  //   const hasCommentOnly = commentFilterCheckbox.checked;
-  //   // 正規表現でチェック
-  //   let voiceRegex = null;
-  //   try {
-  //     voiceRegex = new RegExp(voiceFilterValue, "i");
-  //   } catch (error) {
-  //     console.warn("Invalid regex:", error);
-  //     this.activeAnnotationIndices = [];
-  //     return;
-  //   }
-  //   // フィルタリング
-  //   if (this.annotations == null) {
-  //     console.warn("Annotations are not loaded yet.");
-  //     return;
-  //   }
-  //   this.activeAnnotationIndices = this.annotations.reduce((indices, annotation, index) => {
-  //     let matchesAbnormality = true;
-  //     let matchesVoice = true;
-  //     let matchesAudio = true;
-  //     let matchesActor = true;
-  //     let matchesCharacter = true;
-  //     let matchesNote = true;
-  //     let matchesComment = true;
-  //     // abnormality filterでのチェック
-  //     if (isAbnormalityOnly) {
-  //       matchesAbnormality = !this.isVoiceAnnotationNormal(annotation);
-  //     }
-  //     // voice regexでのチェック
-  //     if (voiceFilterValue) {
-  //       matchesVoice = voiceRegex.test(annotation.id);
-  //     }
-  //     // audio filterでのチェック
-  //     if (audioValue) {
-  //       matchesAudio = annotation.audio_id === audioValue;
-  //     }
-  //     // actor filterでのチェック
-  //     if (actorValue) {
-  //       matchesActor = annotation.actor_id === actorValue;
-  //     }
-  //     // character filterでのチェック
-  //     if (characterValue) {
-  //       matchesCharacter = annotation.character_id === characterValue;
-  //     }
-  //     // note filterでのチェック
-  //     if (hasNoteOnly) {
-  //       matchesNote = annotation.note.text != "";
-  //     }
-  //     // comment filterでのチェック
-  //     if (hasCommentOnly) {
-  //       matchesComment = annotation.annotation_comment != null;
-  //     }
-  //     // 全ての条件を満たすかどうか
-  //     if (matchesAbnormality && matchesVoice && matchesAudio && matchesActor && matchesCharacter && matchesNote && matchesComment) {
-  //       indices.push(index);
-  //     }
-  //     return indices;
-  //   }, []);
-  //   // フィルタされて得られる個数の更新
-  //   document.getElementById("annotation_filter_header").textContent = `Filtered annotations: ${this.activeAnnotationIndices.length} / ${this.annotations.length}`;
-  //   return;
-  // }
+  /**
+   * アノテーションをフィルタリングする
+   */
+  filterAnnotations() {
+    // フィルタ関連の要素を取得
+    const abnormalityFilterCheckbox = document.getElementById("abnormality_filter");
+    const voiceFilterInput = document.getElementById("voice_filter");
+    const audioFilterSelect = document.getElementById("audio_id_filter");
+    const actorFilterSelect = document.getElementById("actor_id_filter");
+    const characterFilterSelect = document.getElementById("character_id_filter");
+    const noteFilterCheckbox = document.getElementById("annotation_note_filter");
+    const commentFilterCheckbox = document.getElementById("annotation_comment_filter");
+    // フィルタの値を取得
+    const isAbnormalityOnly = abnormalityFilterCheckbox.checked;
+    const voiceFilterValue = voiceFilterInput.value.trim();
+    const audioValue = audioFilterSelect.value;
+    const actorValue = actorFilterSelect.value;
+    const characterValue = characterFilterSelect.value;
+    const hasNoteOnly = noteFilterCheckbox.checked;
+    const hasCommentOnly = commentFilterCheckbox.checked;
+    // 正規表現でチェック
+    let voiceRegex = null;
+    try {
+      voiceRegex = new RegExp(voiceFilterValue, "i");
+    } catch (error) {
+      console.warn("Invalid regex:", error);
+      this.activeAnnotationIndices = [];
+      document.getElementById("annotation_filter_header").textContent = `Filtered annotations: 0 / ${this.annotations.length}`;
+      return;
+    }
+    // フィルタリング
+    if (this.annotations == null) {
+      console.warn("Annotations are not loaded yet.");
+      return;
+    }
+    this.activeAnnotationIndices = this.annotations.reduce((indices, annotation, index) => {
+      let matchesAbnormality = true;
+      let matchesVoice = true;
+      let matchesAudio = true;
+      let matchesActor = true;
+      let matchesCharacter = true;
+      let matchesNote = true;
+      let matchesComment = true;
+      // abnormality filterでのチェック
+      if (isAbnormalityOnly) {
+        matchesAbnormality = !this.isVoiceAnnotationNormal(annotation);
+      }
+      // voice regexでのチェック
+      if (voiceFilterValue) {
+        matchesVoice = voiceRegex.test(annotation.id);
+      }
+      // audio filterでのチェック
+      if (audioValue) {
+        matchesAudio = annotation.audio_id === audioValue;
+      }
+      // actor filterでのチェック
+      if (actorValue) {
+        matchesActor = annotation.actor_id === actorValue;
+      }
+      // character filterでのチェック
+      if (characterValue) {
+        matchesCharacter = annotation.character_id === characterValue;
+      }
+      // note filterでのチェック
+      if (hasNoteOnly) {
+        matchesNote = annotation.note.text != "";
+      }
+      // comment filterでのチェック
+      if (hasCommentOnly) {
+        matchesComment = annotation.annotation_comment != null;
+      }
+      // 全ての条件を満たすかどうか
+      if (matchesAbnormality && matchesVoice && matchesAudio && matchesActor && matchesCharacter && matchesNote && matchesComment) {
+        indices.push(index);
+      }
+      return indices;
+    }, []);
+    // フィルタされて得られる個数の更新
+    document.getElementById("annotation_filter_header").textContent = `Filtered annotations: ${this.activeAnnotationIndices.length} / ${this.annotations.length}`;
+  }
 
 
   //////////////////////////
@@ -1079,11 +1103,11 @@ class MangaAnnotationTool {
       }
       // 次のリージョンを選択
       if (event.code === "KeyN") {
-        this.selectNextAudioRegion(false);
+        this.selectNextAudioRegion(false, event.shiftKey);
       }
       // 前のリージョンを選択
       if (event.code === "KeyB") {
-        this.selectNextAudioRegion(true);
+        this.selectNextAudioRegion(true, event.shiftKey);
       }
       // アノテーションをセーブ
       if (event.code === "KeyS") {

@@ -22,6 +22,18 @@ dev = [
     "types-tqdm>=4.67.0.20250516",
 ]
 
+[tool.uv]
+required-version = ">=0.11.27"
+exclude-newer = "14 days"
+index-strategy = "first-index"
+no-build = true
+prerelease = "disallow"
+
+[[tool.uv.index]]
+name = "takumi-guard"
+url = "https://pypi.flatt.tech/simple/"
+default = true
+
 [tool.ruff]
 select = ["E", "F", "I"]
 ignore = ["E501"]

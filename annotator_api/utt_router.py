@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import numpy
-import soundfile as sf  # type: ignore
 import yaml
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -21,6 +20,11 @@ from annotator_api.utils import (
     PreLoadedData,
     apply_change_logs,
     wrap_audio_data,
+)
+from annotator_api.utt_audio import (
+    ClipMetadata,
+    clip_audio_range,
+    clip_voice_for_all_characters,
 )
 from mangavox_api.annotation_helper import ExtendedVoice, MangaVoxForAnnotation
 
@@ -46,36 +50,19 @@ def _check_and_clip_utterances_from_audio(
         Tuple[str, List[Optional[Tuple[numpy.ndarray, int]]]]: Character name and a list of clipped audio data tuples (audio data, sample rate) or None for silent sections.
     """
     clipped_audio_list: List[Optional[Tuple[numpy.ndarray, int]]] = []
-    with sf.SoundFile(io.BytesIO(audio_raw_data)) as audio_file:
-        n_frames = audio_file.frames
-        sample_rate = audio_file.samplerate
-        for voice in voices:
-            # convert time in second to frame index
-            start = max(0, int(voice.start * sample_rate))
-            end = min(n_frames, int(voice.end * sample_rate))
-            if start >= end:
-                raise ValueError(
-                    f"Invalid start and end time. [start: {start / sample_rate}, end: {end / sample_rate}]"
-                )
-            # read audio data
-            audio_file.seek(start)
-            data = audio_file.read(end - start)
-            is_silent = numpy.abs(data).max() == 0
-            if is_silent:
-                # if the audio is silent, append None
-                clipped_audio_list.append(None)
-            else:
-                # Clip audio data with margins
-                start = max(0, int((voice.start - margins[0]) * sample_rate))
-                end = min(n_frames, int((voice.end + margins[1]) * sample_rate))
-                if start >= end:
-                    raise ValueError(
-                        f"Invalid start and end time. [start: {start / sample_rate}, end: {end / sample_rate}]"
-                    )
-                # read audio data
-                audio_file.seek(start)
-                data = audio_file.read(end - start)
-                clipped_audio_list.append((data, sample_rate))
+    for voice in voices:
+        clipped = clip_audio_range(
+            character_name,
+            audio_raw_data,
+            voice.start,
+            voice.end,
+            margins=(margins[0], margins[1]),
+        )
+        if clipped is None:
+            clipped_audio_list.append(None)
+        else:
+            audio_data, sample_rate, _metadata = clipped
+            clipped_audio_list.append((audio_data, sample_rate))
     assert len(clipped_audio_list) == len(voices)
     return character_name, clipped_audio_list
 
@@ -197,16 +184,18 @@ async def check_audio_existence(voice_id: str, request: Request) -> List[str]:
 
 @router.get("/audio/{character_name}/{voice_id}")
 async def get_audio_by_voice_id(
-    character_name: str, voice_id: str, request: Request
+    character_name: str,
+    voice_id: str,
+    request: Request,
+    start: Optional[float] = None,
+    end: Optional[float] = None,
 ) -> StreamingResponse:
-    """Get the audio data for a specific character and voice ID.
+    """Get saved or preview-clipped audio for a character and voice.
 
-    Args:
-        character_name (str): The name of the character.
-        voice_id (str): The ID of the voice to retrieve.
-
-    Returns:
-        StreamingResponse: A streaming response containing the audio data in WAV format."""
+    Without start/end this serves the cached clip computed at UTT startup or
+    after save. With start/end it clips on demand for unsaved time-edit preview
+    and leaves the cache untouched.
+    """
     state: AppState = request.app.state.app_data
     if state.pre_loaded_data is None:
         raise HTTPException(
@@ -219,27 +208,131 @@ async def get_audio_by_voice_id(
     if state.pre_loaded_data.aligned_voices is None:
         raise HTTPException(status_code=500, detail="Annotation data not loaded.")
 
-    if state.pre_loaded_data.clipped_voices is None:
-        raise HTTPException(status_code=500, detail="Clipped audio data not loaded.")
+    if (start is None) != (end is None):
+        raise HTTPException(
+            status_code=400,
+            detail="Both start and end must be specified for preview clipping.",
+        )
 
-    if character_name not in state.pre_loaded_data.clipped_voices[voice_id]:
-        raise HTTPException(status_code=404, detail="Silent section")
+    if start is not None and end is not None:
+        try:
+            clipped = clip_audio_range(
+                character_name,
+                state.pre_loaded_data.audio_raw_data_dict[character_name],
+                start,
+                end,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if clipped is None:
+            raise HTTPException(status_code=404, detail="Silent section")
+        audio_data, sample_rate, _metadata = clipped
+    else:
+        if state.pre_loaded_data.clipped_voices is None:
+            raise HTTPException(status_code=500, detail="Clipped audio data not loaded.")
 
-    clipped_voice = state.pre_loaded_data.clipped_voices[voice_id][character_name]
-    if clipped_voice is None:
-        raise HTTPException(status_code=404, detail="Silent section")
+        if character_name not in state.pre_loaded_data.clipped_voices[voice_id]:
+            raise HTTPException(status_code=404, detail="Silent section")
 
-    audio_data, sample_rate = clipped_voice
+        clipped_voice = state.pre_loaded_data.clipped_voices[voice_id][character_name]
+        if clipped_voice is None:
+            raise HTTPException(status_code=404, detail="Silent section")
+
+        audio_data, sample_rate = clipped_voice
+
     buffer = wrap_audio_data(audio_data, sample_rate)
-    # clip audio data from start to end
     headers = {
-        "Content-Type": "audio/wav",  # MIME type
+        "Content-Type": "audio/wav",
         "Content-Length": str(len(buffer.getbuffer())),
-        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",  # Disable caching
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
         "Pragma": "no-cache",
         "Expires": "0",
     }
     return StreamingResponse(buffer, media_type="audio/wav", headers=headers)
+
+
+@router.get("/audio_clip_meta/{voice_id}")
+async def get_audio_clip_metadata(
+    voice_id: str,
+    request: Request,
+    start: Optional[float] = None,
+    end: Optional[float] = None,
+) -> Dict[str, List[dict]]:
+    """Get active characters and relative region metadata for a voice clip.
+
+    The frontend uses this before loading waveforms and while resizing a region
+    to keep the audio_id candidate list in sync with the current start/end.
+    """
+    state: AppState = request.app.state.app_data
+    if state.pre_loaded_data is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Application state not initialized. Please check the server logs.",
+        )
+    if state.pre_loaded_data.aligned_voices is None:
+        raise HTTPException(status_code=500, detail="Annotation data not loaded.")
+
+    target_voices = [
+        voice for voice in state.pre_loaded_data.aligned_voices.voices if voice.id == voice_id
+    ]
+    if len(target_voices) != 1:
+        raise HTTPException(status_code=404, detail=f"Voice ID '{voice_id}' not found.")
+
+    target_voice = target_voices[0]
+    if (start is None) != (end is None):
+        raise HTTPException(
+            status_code=400,
+            detail="Both start and end must be specified for preview clipping.",
+        )
+    clip_start = target_voice.start if start is None else start
+    clip_end = target_voice.end if end is None else end
+
+    metadata_list: List[ClipMetadata] = []
+    try:
+        for character_name, audio_raw_data in state.pre_loaded_data.audio_raw_data_dict.items():
+            clipped = clip_audio_range(
+                character_name,
+                audio_raw_data,
+                clip_start,
+                clip_end,
+            )
+            if clipped is None:
+                continue
+            _audio_data, _sample_rate, metadata = clipped
+            metadata_list.append(metadata)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return {"characters": metadata_list}
+
+
+def refresh_clipped_voice_cache(state: AppState, voice_id: str) -> None:
+    """Recompute one cached UTT clip after a saved start/end edit.
+
+    UTT startup precomputes clipped_voices and voice_existence_dict for fast
+    navigation. A time edit changes both for the edited voice, so update only
+    that voice instead of rebuilding the whole cache.
+    """
+
+    if state.pre_loaded_data is None:
+        raise ValueError("Pre-loaded data is not initialized.")
+    if state.pre_loaded_data.clipped_voices is None:
+        return
+    if state.pre_loaded_data.voice_existence_dict is None:
+        return
+
+    target_voices = [
+        voice for voice in state.pre_loaded_data.aligned_voices.voices if voice.id == voice_id
+    ]
+    if len(target_voices) != 1:
+        raise ValueError(f"Voice ID '{voice_id}' not found.")
+
+    active_characters, clipped_voices, _metadata = clip_voice_for_all_characters(
+        target_voices[0],
+        state.pre_loaded_data.audio_raw_data_dict,
+    )
+    state.pre_loaded_data.voice_existence_dict[voice_id] = active_characters
+    state.pre_loaded_data.clipped_voices[voice_id] = clipped_voices
 
 
 def load_audio_files(audio_dir: Path) -> Tuple[List[Dict[str, str]], Dict[str, bytes]]:
@@ -313,6 +406,7 @@ def pre_init(args: argparse.Namespace) -> AppState:
 
     # Load audio files
     audio_file_list, audio_raw_data_dict = load_audio_files(args.audio_dir)
+
     # Clip utterances and precompute voice existence
     voice_existence_dict, clipped_audio = check_and_clip_utterances_from_audio(
         aligned_voices, audio_raw_data_dict

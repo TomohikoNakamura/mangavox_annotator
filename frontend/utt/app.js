@@ -3,8 +3,10 @@ const HELP_DESCRIPTION = `
   <h5>Help: Keyboard Shortcuts</h5>
   <ul>
     <li><strong>Space:</strong> Play/Pause audio</li>
-    <li><strong>Press n:</strong> Select next voice</li>
-    <li><strong>Press b:</strong> Select previous voice</li>
+    <li><strong>Press n:</strong> Select next voice in the current filter</li>
+    <li><strong>Press b:</strong> Select previous voice in the current filter</li>
+    <li><strong>Press Shift+n:</strong> Select next voice ignoring the current filter</li>
+    <li><strong>Press Shift+b:</strong> Select previous voice ignoring the current filter</li>
     <li><strong>Press s:</strong> Save the selected voice</li>
     <li><strong>Press r:</strong> Reset the selected voice</li>
     <li><strong>Click the canvas:</strong> Select the image annotation containing the coordinate position of the mouse when a voice is selected. If the position is included in multiple annotations, the minimum-area annotation is selected.</li>
@@ -46,11 +48,12 @@ class MangaAnnotationTool {
    * アノテーションの状態管理にプロキシを利用．
    */
   setupState() {
+    this.stateTarget = {
+      currentVoiceIndex: -1, // 現在の音声アノテーションのインデックス
+      isLoading: false, // ロード中かどうかのフラグ
+    };
     this.state = new Proxy(
-      {
-        currentVoiceIndex: -1, // 現在の音声アノテーションのインデックス
-        isLoading: false, // ロード中かどうかのフラグ
-      },
+      this.stateTarget,
       {
         set: (target, key, value) => {
           if (key == "currentVoiceIndex") {
@@ -110,6 +113,10 @@ class MangaAnnotationTool {
     // キャラクターの初期化
     this.audioCharacters = []; // 音声アノテーションに登場するキャラクターのリスト
     this.activeAudioCharacters = []; // 現在選択されている音声アノテーションと，発話時刻が重複しているものがあるキャラクターのリスト
+    this.audioClipMetadata = {}; // character_name -> clipped audio metadata
+    this.audioCandidateRefreshTimer = null;
+    this.audioCandidateRefreshRequestId = 0;
+    this.areEditElementsEnabled = false;
     this.characters = []; // 全てのキャラクターのリスト（画像のみに登場するものも含む）
     this.actors = []; // 演技者のリスト
     // WaveSurferのインスタンスを作成
@@ -156,6 +163,7 @@ class MangaAnnotationTool {
     const audioFilterSelect = document.getElementById("audio_id_filter");
     const actorFilterSelect = document.getElementById("actor_id_filter");
     const characterFilterSelect = document.getElementById("character_id_filter");
+    const spokenTextFilterCheckbox = document.getElementById("spoken_text_filter");
     const noteFilterCheckbox = document.getElementById("annotation_note_filter");
     const commentFilterCheckbox = document.getElementById("annotation_comment_filter");
     // audio IDフィルター用に音声キャラクターを設定
@@ -183,7 +191,7 @@ class MangaAnnotationTool {
       characterFilterSelect.appendChild(option);
     });
     // イベントリスナーを設定
-    [abnormalityFilterCheckbox, voiceFilterInput, audioFilterSelect, actorFilterSelect, characterFilterSelect, noteFilterCheckbox, commentFilterCheckbox].forEach((input) => {
+    [abnormalityFilterCheckbox, voiceFilterInput, audioFilterSelect, actorFilterSelect, characterFilterSelect, spokenTextFilterCheckbox, noteFilterCheckbox, commentFilterCheckbox].forEach((input) => {
       input.addEventListener("input", () => { this.filterAnnotations(); });
     });
     // 初期状態では全てのアノテーションを表示
@@ -198,7 +206,7 @@ class MangaAnnotationTool {
     if (voice_id) {
       // voice_idが指定されている場合は、その音声キャラクターのみを読み込む
       try {
-        const response = await fetch(`http://localhost:8000/audio_characters/${voice_id}`);
+        const response = await fetch(`/audio_characters/${voice_id}`);
         if (!response.ok) {
           throw new Error(`Failed to fetch audio characters: ${response.statusText}`);
         }
@@ -211,7 +219,7 @@ class MangaAnnotationTool {
     } else {
       // voice_idが指定されていない場合は、全ての音声キャラクターを読み込む
       try {
-        const response = await fetch(`http://localhost:8000/audio_characters`);
+        const response = await fetch(`/audio_characters`);
         if (!response.ok) {
           throw new Error(`Failed to fetch audio characters: ${response.statusText}`);
         }
@@ -243,11 +251,165 @@ class MangaAnnotationTool {
   }
 
   /**
-   * 音声を読み込む
-   * @param {string} voiceId 
-   * @returns 
+   * start/end preview values for APIs that support unsaved time edits.
+   * Passing no values keeps the backend on the saved cached clip path.
+   * @param {number|null} start
+   * @param {number|null} end
+   * @returns {string}
    */
-  async loadAudio(voiceId) {
+  buildTimeQuery(start = null, end = null) {
+    if (start == null || end == null) {
+      return "";
+    }
+    const params = new URLSearchParams({
+      start: String(start),
+      end: String(end),
+    });
+    return `?${params.toString()}`;
+  }
+
+  /**
+   * Load clip metadata for the current saved or preview time range.
+   *
+   * Metadata maps source-audio absolute seconds to relative WaveSurfer region
+   * seconds and also defines the active audio_id candidates for the range.
+   * @param {string} voiceId
+   * @param {number|null} start
+   * @param {number|null} end
+   */
+  async loadAudioClipMetadata(voiceId, start = null, end = null) {
+    const response = await fetch(`/audio_clip_meta/${voiceId}${this.buildTimeQuery(start, end)}`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch audio clip metadata: ${response.statusText}`);
+    }
+    const data = await response.json();
+    this.audioClipMetadata = {};
+    this.activeAudioCharacters = data.characters.map((metadata) => {
+      this.audioClipMetadata[metadata.character_name] = metadata;
+      return metadata.character_name;
+    });
+  }
+
+  /**
+   * Clear audio_id when the selected speaker is no longer active.
+   *
+   * Expanding or shrinking start/end can add or remove active character audio.
+   * Keeping an out-of-range audio_id would make the annotation look valid while
+   * no waveform exists for that speaker.
+   * @param {Object|null} annotation
+   */
+  reconcileAudioIdWithActiveCharacters(annotation) {
+    if (!annotation || annotation.audio_id == null) {
+      return;
+    }
+    if (!this.activeAudioCharacters.includes(annotation.audio_id)) {
+      annotation.audio_id = null;
+      annotation.isChanged = true;
+    }
+  }
+
+  /**
+   * Rebuild the audio_id selector from the current active audio candidates.
+   * @param {Object|null} annotation
+   */
+  updateAudioIdDropdown(annotation) {
+    const selectElement = document.getElementById("audio_id");
+    if (!selectElement) {
+      return;
+    }
+    selectElement.innerHTML = "";
+    const emptyOption = document.createElement("option");
+    emptyOption.value = "null";
+    emptyOption.text = "";
+    selectElement.add(emptyOption);
+    this.activeAudioCharacters.forEach((audioCharacter) => {
+      const option = document.createElement("option");
+      option.value = audioCharacter;
+      option.text = audioCharacter;
+      selectElement.add(option);
+    });
+    if (annotation && annotation.audio_id && this.activeAudioCharacters.includes(annotation.audio_id)) {
+      selectElement.value = annotation.audio_id;
+    } else {
+      selectElement.value = "null";
+    }
+  }
+
+  /**
+   * Find the WaveSurfer instance for an active audio_id.
+   * @param {string} audioCharacter
+   * @returns {WaveSurfer|null}
+   */
+  getWaveSurferForAudioCharacter(audioCharacter) {
+    const audioCharacterIndex = this.activeAudioCharacters.findIndex((candidate) => candidate === audioCharacter);
+    if (audioCharacterIndex === -1) {
+      return null;
+    }
+    return this.waveSurferInstances[audioCharacterIndex] ?? null;
+  }
+
+  /**
+   * Play only the annotated region inside the padded clipped audio.
+   *
+   * UTT mode deliberately keeps padding in the waveform for context, but Space
+   * playback should stay within the target region so surrounding audio is not
+   * confused with the annotation itself.
+   * @param {string} audioCharacter
+   */
+  playAudioCharacterRegion(audioCharacter) {
+    const waveSurfer = this.getWaveSurferForAudioCharacter(audioCharacter);
+    const metadata = this.audioClipMetadata[audioCharacter];
+    if (!waveSurfer || !metadata) {
+      return;
+    }
+    waveSurfer.play(metadata.region_start, metadata.region_end);
+  }
+
+  /**
+   * Debounce candidate refresh while a region is being resized.
+   *
+   * Dragging should update the audio_id choices quickly, but rebuilding every
+   * waveform while the resize handle is moving makes the interaction unstable.
+   * The full waveform reload is done on update-end instead.
+   * @param {Object|null} annotation
+   */
+  scheduleAudioCandidateRefresh(annotation) {
+    if (!annotation) {
+      return;
+    }
+    if (this.audioCandidateRefreshTimer) {
+      clearTimeout(this.audioCandidateRefreshTimer);
+    }
+    const requestId = ++this.audioCandidateRefreshRequestId;
+    this.audioCandidateRefreshTimer = setTimeout(async () => {
+      if (this.state.isLoading) {
+        return;
+      }
+      try {
+        await this.loadAudioClipMetadata(annotation.id, annotation.start, annotation.end);
+        if (requestId !== this.audioCandidateRefreshRequestId) {
+          return;
+        }
+        this.reconcileAudioIdWithActiveCharacters(annotation);
+        this.updateAudioIdDropdown(annotation);
+        document.getElementById("current_audio_id").textContent = annotation.audio_id != null ? annotation.audio_id : "Empty";
+        document.getElementById("annotation_details_head").style.backgroundColor = this.isVoiceAnnotationNormal(annotation) ? "" : this.styles.toBeFixed;
+      } catch (error) {
+        console.warn("Error refreshing audio candidates:", error);
+      }
+    }, 300);
+  }
+
+  /**
+   * 音声を読み込む
+   * @param {string} voiceId
+   * @param {Object} options
+   * @returns
+   */
+  async loadAudio(voiceId, options = {}) {
+    const previewStart = options.start ?? null;
+    const previewEnd = options.end ?? null;
+
     // wavesurfer instanceを破棄
     if (this.waveSurferInstances.length > 0) {
       this.waveSurferInstances.forEach((waveSurfer) => {
@@ -257,6 +419,7 @@ class MangaAnnotationTool {
       waveformContainer.innerHTML = "";
       this.waveSurferInstances = [];
       this.activeAudioCharacters = [];
+      this.audioClipMetadata = {};
     }
 
     if (voiceId == null) {
@@ -265,18 +428,19 @@ class MangaAnnotationTool {
       return;
     }
 
-    // 音声のロードを非同期で処理
-    await this.loadAudioCharacters(voiceId);
+    await this.loadAudioClipMetadata(voiceId, previewStart, previewEnd);
+    this.reconcileAudioIdWithActiveCharacters(this.annotations[this.state.currentVoiceIndex]);
+    const query = this.buildTimeQuery(previewStart, previewEnd);
     for (const audioCharacter of this.activeAudioCharacters) {
       const waveSurfer = this.initializeWaveSurfer(audioCharacter);
-      await waveSurfer.load(`http://localhost:8000/audio/${audioCharacter}/${voiceId}`);
+      await waveSurfer.load(`/audio/${audioCharacter}/${voiceId}${query}`);
       this.waveSurferInstances.push(waveSurfer);
     }
   }
 
   /**
    * wavesurferを初期化する
-   * @param {string} audioCharacter 
+   * @param {string} audioCharacter
    * @returns {WaveSurfer}
    */
   initializeWaveSurfer(audioCharacter) {
@@ -319,15 +483,26 @@ class MangaAnnotationTool {
 
     // 対象区間にリージョンを設定
     waveSurfer.on("ready", () => {
+      const metadata = this.audioClipMetadata[audioCharacter];
+      if (!metadata) {
+        return;
+      }
       const regionsPlugin = waveSurfer.getActivePlugins().find(
         (plugin) => plugin instanceof WaveSurfer.Regions
       );
-      regionsPlugin.addRegion({
-        start: 0.5, // 開始位置はmain2.pyで指定済み (500 ms)
-        end: waveSurfer.getDuration() - 0.5, // 終了位置はmain2.pyで指定済み (500 ms)
+      const region = regionsPlugin.addRegion({
+        start: metadata.region_start,
+        end: metadata.region_end,
         color: this.styles.normal,
         drag: false,
-        resize: false
+        resize: this.isVoiceRegionEditable(audioCharacter)
+      });
+      region.audioCharacter = audioCharacter;
+      region.on("update", () => {
+        this.updateAnnotationTimeFromRegion(region);
+      });
+      region.on("update-end", async () => {
+        await this.reloadCurrentAudioPreview();
       });
     });
 
@@ -345,13 +520,118 @@ class MangaAnnotationTool {
   }
 
   /**
+   * Convert a resized clip-relative region back to absolute annotation times.
+   * @param {WaveSurfer.Region} region
+   */
+  updateAnnotationTimeFromRegion(region) {
+    const annotation = this.annotations[this.state.currentVoiceIndex];
+    const metadata = this.audioClipMetadata[region.audioCharacter];
+    if (!annotation || !metadata || annotation.audio_id !== region.audioCharacter) {
+      return;
+    }
+    annotation.start = this.roundTime(metadata.clip_start + region.start);
+    annotation.end = this.roundTime(metadata.clip_start + region.end);
+    annotation.isChanged = true;
+    document.getElementById("start").value = annotation.start;
+    document.getElementById("end").value = annotation.end;
+    document.getElementById("current_start").textContent = `${annotation.start}s`;
+    document.getElementById("current_end").textContent = `${annotation.end}s`;
+    document.getElementById("annotation_details_head").style.backgroundColor = this.isVoiceAnnotationNormal(annotation) ? "" : this.styles.toBeFixed;
+    this.scheduleAudioCandidateRefresh(annotation);
+  }
+
+  /**
+   * Reload waveforms after a time edit has been committed.
+   *
+   * This uses unsaved start/end values for preview; the backend cache is updated
+   * only after the annotation is saved.
+   */
+  async reloadCurrentAudioPreview() {
+    const annotation = this.annotations[this.state.currentVoiceIndex];
+    if (!annotation || this.state.isLoading) {
+      return;
+    }
+    this.audioCandidateRefreshRequestId++;
+    if (this.audioCandidateRefreshTimer) {
+      clearTimeout(this.audioCandidateRefreshTimer);
+      this.audioCandidateRefreshTimer = null;
+    }
+    this.state.isLoading = true;
+    this.setEditElementsEnabled(false);
+    try {
+      await this.loadAudio(annotation.id, { start: annotation.start, end: annotation.end });
+      this.writeAnnotationDetails(annotation);
+      this.setOverlayState(false, "");
+    } catch (error) {
+      console.error("Error reloading audio preview:", error);
+      this.setOverlayState(true, error.message);
+    } finally {
+      this.setEditElementsEnabled(true);
+      this.state.isLoading = false;
+    }
+  }
+
+  /**
+   * Return whether the waveform region for the given audio_id can be resized.
+   *
+   * Voice edit mode edits annotation start/end, so only the currently selected
+   * audio_id should expose resize handles. Other overlapping speakers remain
+   * visible as context but are read-only.
+   * @param {string} audioCharacter
+   * @returns {boolean}
+   */
+  isVoiceRegionEditable(audioCharacter) {
+    const voiceEditModeToggle = document.getElementById("voice_edit_mode_toggle");
+    const annotation = this.annotations[this.state.currentVoiceIndex];
+    return Boolean(
+      voiceEditModeToggle
+      && voiceEditModeToggle.checked
+      && this.areEditElementsEnabled
+      && annotation
+      && annotation.audio_id === audioCharacter
+    );
+  }
+
+  /**
+   * Enable region resizing only when both edit mode and form editing are active.
+   */
+  toggleVoiceEditability() {
+    const voiceEditModeToggle = document.getElementById("voice_edit_mode_toggle");
+    if (!voiceEditModeToggle) {
+      return;
+    }
+    this.waveSurferInstances.forEach((waveSurfer) => {
+      const regionsPlugin = waveSurfer.getActivePlugins().find(
+        (plugin) => plugin instanceof WaveSurfer.Regions
+      );
+      if (!regionsPlugin) {
+        return;
+      }
+      for (const region of regionsPlugin.regions) {
+        region.setOptions({ resize: this.isVoiceRegionEditable(region.audioCharacter) });
+      }
+    });
+  }
+
+  /**
+   * Update current voice index after manual annotation loading.
+   *
+   * This avoids triggering the Proxy setter, which would save and reload the
+   * previously selected annotation again.
+   * @param {number} value
+   */
+  setCurrentVoiceIndexSilently(value) {
+    this.stateTarget.currentVoiceIndex = value;
+  }
+
+  /**
    * 音声アノテーションを読み込む
    * @param {string} targetVoiceID 
    * @return {Promise<void>}
    */
   async loadVoiceAnnotation(targetVoiceID = "all") {
     try {
-      const response = await fetch(`http://localhost:8000/annotations/voice/${targetVoiceID}`);
+      const response = await fetch(`/annotations/voice/${targetVoiceID}`);
       if (!response.ok) {
         throw new Error(`Failed to fetch annotations: ${response.statusText}`);
       }
@@ -380,7 +660,7 @@ class MangaAnnotationTool {
    */
   async loadCharacters() {
     try {
-      const response = await fetch("http://localhost:8000/annotations/characters");
+      const response = await fetch("/annotations/characters");
       if (!response.ok) {
         throw new Error(`Failed to fetch characters: ${response.statusText}`);
       }
@@ -398,7 +678,7 @@ class MangaAnnotationTool {
    */
   async loadActors() {
     try {
-      const response = await fetch("http://localhost:8000/actors");
+      const response = await fetch("/actors");
       if (!response.ok) {
         throw new Error(`Failed to fetch actors: ${response.statusText}`);
       }
@@ -447,9 +727,20 @@ class MangaAnnotationTool {
    * @param {boolean} enabled - 有効化するかどうか
    */
   setEditElementsEnabled(enabled) {
-    ["actor_id", "spoken_text", "audio_id", "text_id", "page_index", "frame_id", "body_id", "face_id", "character_id", "annotation_comment"].forEach((elementId) => {
+    this.areEditElementsEnabled = enabled;
+    ["start", "end", "actor_id", "spoken_text", "audio_id", "text_id", "page_index", "frame_id", "body_id", "face_id", "character_id", "annotation_comment"].forEach((elementId) => {
       document.getElementById(elementId).disabled = !enabled;
     });
+    this.toggleVoiceEditability();
+  }
+
+  /**
+   * Round editable annotation times to milliseconds for stable display/API use.
+   * @param {number} value
+   * @returns {number}
+   */
+  roundTime(value) {
+    return Math.round(value * 1000) / 1000;
   }
 
   /**
@@ -520,6 +811,10 @@ class MangaAnnotationTool {
           document.getElementById(voiceKey).value = targetAnnotation[voiceKey].text || "";
         } else {
           document.getElementById(`current_${voiceKey}`).textContent = targetAnnotation[voiceKey] + "s";
+          const inputElement = document.getElementById(voiceKey);
+          if (inputElement) {
+            inputElement.value = targetAnnotation[voiceKey] === "None" ? "" : targetAnnotation[voiceKey];
+          }
         }
       });
 
@@ -590,6 +885,9 @@ class MangaAnnotationTool {
       // キャラクタ名のプルダウンメニューリストを更新，audio_idのプルダウンメニューリストを更新
       [[this.characters, "character_id"], [this.activeAudioCharacters, "audio_id"], [this.actors, "actor_id"]].forEach(([candidates, voiceKey]) => {
         document.getElementById(voiceKey).innerHTML = "";
+        if (voiceKey == "audio_id") {
+          document.getElementById(voiceKey).add(createOption("null", ""));
+        }
         candidates.forEach((candidate) => {
           if (voiceKey == "character_id") {
             document.getElementById(voiceKey).add(createOption(candidate.id, candidate.name));
@@ -642,6 +940,48 @@ class MangaAnnotationTool {
     }
   };
 
+  async deleteAnnotation(annotation) {
+    // アノテーションがnullの場合は何もしない
+    if (annotation == null) {
+      return;
+    }
+    // アノテーションを削除
+    try {
+      const response = await fetch(`/delete/annotation/${annotation.id}`);
+      if (response.ok) {
+        console.log("Annotation deleted successfully.");
+      } else {
+        console.error("Failed to delete annotation:", response.statusText);
+        throw new Error(`Failed to delete annotation: ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error("Error deleting annotation:", error);
+      throw error;
+    }
+    // アノテーション全体を再取得（サーバーと同期）
+    const previousAnnotationIndex = this.annotations.findIndex((candidate) => candidate.id === annotation.id);
+    await Promise.all([
+      this.imageManager.loadImageAnnotation(annotation.page_index != null ? annotation.page_index : this.imageManager.state.currentPage),
+      this.loadVoiceAnnotation()
+    ]);
+    // filterを再適用
+    this.filterAnnotations();
+    if (this.activeAnnotationIndices.length === 0) {
+      this.setCurrentVoiceIndexSilently(-1);
+      await this.loadAudio(null);
+      this.imageManager.drawImageAnnotations([]);
+      this.writeAnnotationDetails(null);
+      this.setEditElementsEnabled(false);
+      this.setOverlayState(true, "No annotations match the current filter.");
+      return;
+    }
+    // 次のアノテーションをフィルタ済み候補から選択
+    const newAnnotationIndex = this.activeAnnotationIndices.find((index) => index >= previousAnnotationIndex) ?? this.activeAnnotationIndices[this.activeAnnotationIndices.length - 1];
+    this.setCurrentVoiceIndexSilently(newAnnotationIndex);
+    await this.loadAudio(this.annotations[newAnnotationIndex].id);
+    this.loadVoiceAndImageAnnotationsAfterAudioLoaded(newAnnotationIndex);
+  }
+
   /**
    * アノテーションを保存する
    * @param {Object} annotation - 保存するアノテーションオブジェクト
@@ -662,7 +1002,7 @@ class MangaAnnotationTool {
     try {
       let payload = JSON.parse(JSON.stringify(annotation));
       payload["uid"] = this.imageManager.stats.uid;
-      const response = await fetch("http://localhost:8000/update/annotation", {
+      const response = await fetch("/update/annotation", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -685,6 +1025,7 @@ class MangaAnnotationTool {
       this.loadVoiceAnnotation(annotation.id)
     ]);
     const value = this.annotations.findIndex((candidate) => candidate.id === annotation.id);
+    await this.loadAudio(annotation.id);
     this.loadVoiceAndImageAnnotationsAfterAudioLoaded(value);
   }
 
@@ -705,6 +1046,9 @@ class MangaAnnotationTool {
       this.imageManager.loadImageAnnotation(annotation.page_index != null ? annotation.page_index : this.imageManager.state.currentPage),
       this.loadVoiceAnnotation(annotation.id)
     ]);
+    const value = this.annotations.findIndex((candidate) => candidate.id === annotation.id);
+    await this.loadAudio(annotation.id);
+    this.loadVoiceAndImageAnnotationsAfterAudioLoaded(value);
   }
 
   /**
@@ -717,6 +1061,7 @@ class MangaAnnotationTool {
     const audioFilterSelect = document.getElementById("audio_id_filter");
     const actorFilterSelect = document.getElementById("actor_id_filter");
     const characterFilterSelect = document.getElementById("character_id_filter");
+    const spokenTextFilterCheckbox = document.getElementById("spoken_text_filter");
     const noteFilterCheckbox = document.getElementById("annotation_note_filter");
     const commentFilterCheckbox = document.getElementById("annotation_comment_filter");
     // フィルタの値を取得
@@ -725,6 +1070,7 @@ class MangaAnnotationTool {
     const audioValue = audioFilterSelect.value;
     const actorValue = actorFilterSelect.value;
     const characterValue = characterFilterSelect.value;
+    const hasNoSpokenTextOnly = spokenTextFilterCheckbox.checked;
     const hasNoteOnly = noteFilterCheckbox.checked;
     const hasCommentOnly = commentFilterCheckbox.checked;
     // 正規表現でチェック
@@ -769,6 +1115,10 @@ class MangaAnnotationTool {
       if (characterValue) {
         matchesCharacter = annotation.character_id === characterValue;
       }
+      // spoken text filterでのチェック
+      if (hasNoSpokenTextOnly) {
+        matchesVoice = annotation.text.trim() === "";
+      }
       // note filterでのチェック
       if (hasNoteOnly) {
         matchesNote = annotation.note.text != "";
@@ -804,23 +1154,25 @@ class MangaAnnotationTool {
             if (this.annotations[this.state.currentVoiceIndex].audio_id) {
               // audio_idが指定されていれば，その音声のみ再生
               const selectedAudioCharacter = this.annotations[this.state.currentVoiceIndex].audio_id;
-              const selectedAudioCharacterIndex = this.activeAudioCharacters.findIndex((candidate) => candidate === selectedAudioCharacter);
-              this.waveSurferInstances[selectedAudioCharacterIndex].play();
+              this.playAudioCharacterRegion(selectedAudioCharacter);
             } else {
               // audio_idが指定されてなければ，全ての音声を再生
-              this.waveSurferInstances.forEach((waveSurfer) => waveSurfer.play());
+              this.activeAudioCharacters.forEach((audioCharacter) => {
+                this.playAudioCharacterRegion(audioCharacter);
+              });
             }
           }
         }
       }
       // 次の音声アノテーションを選択
       if (event.code === "KeyN") {
-        // 次の音声アノテーションを選択
-        if (this.annotations.length !== this.activeAnnotationIndices.length) {
-          // アクティブなアノテーションが全てのアノテーションでない場合
-          // this.state.currentVoiceIndexよりも大きくかつ，this.activeAnnotationIndicesの中で最小のインデックスを取得
+        if (this.annotations.length === 0 || (!event.shiftKey && this.activeAnnotationIndices.length === 0)) {
+          this.setOverlayState(true, "No annotations match the current filter.");
+          return;
+        }
+        if (!event.shiftKey && this.annotations.length !== this.activeAnnotationIndices.length) {
+          // フィルタ中は次のフィルタ該当候補へ移動する。Shift+n は一時的にフィルタを無視する。
           const nextIndex = this.activeAnnotationIndices.filter((index) => index > this.state.currentVoiceIndex).reduce((a, b) => Math.min(a, b), Infinity);
-          // 次の音声アノテーションがない場合は最初の音声アノテーションを選択
           this.state.currentVoiceIndex = nextIndex !== Infinity ? nextIndex : this.activeAnnotationIndices[0];
         } else {
           this.state.currentVoiceIndex = this.state.currentVoiceIndex + 1;
@@ -828,14 +1180,15 @@ class MangaAnnotationTool {
       }
       // 前の音声アノテーションを選択
       if (event.code === "KeyB") {
-        if (this.annotations.length !== this.activeAnnotationIndices.length) {
-          // アクティブなアノテーションが全てのアノテーションでない場合
-          // this.state.currentVoiceIndexよりも小さくかつ，this.activeAnnotationIndicesの中で最大のインデックスを取得
+        if (this.annotations.length === 0 || (!event.shiftKey && this.activeAnnotationIndices.length === 0)) {
+          this.setOverlayState(true, "No annotations match the current filter.");
+          return;
+        }
+        if (!event.shiftKey && this.annotations.length !== this.activeAnnotationIndices.length) {
+          // フィルタ中は前のフィルタ該当候補へ移動する。Shift+b は一時的にフィルタを無視する。
           const prevIndex = this.activeAnnotationIndices.filter((index) => index < this.state.currentVoiceIndex).reduce((a, b) => Math.max(a, b), -Infinity);
-          // 前の音声アノテーションがない場合は最後の音声アノテーションを選択
           this.state.currentVoiceIndex = prevIndex !== -Infinity ? prevIndex : this.activeAnnotationIndices[this.activeAnnotationIndices.length - 1];
         } else {
-          // 前の音声アノテーションを選択
           this.state.currentVoiceIndex = this.state.currentVoiceIndex - 1;
         }
       }
@@ -876,6 +1229,10 @@ class MangaAnnotationTool {
           this.annotations[this.state.currentVoiceIndex][elementId] = commaSeparatedValues || null;
         } else {
           this.annotations[this.state.currentVoiceIndex][elementId] = event.target.value == "null" ? null : event.target.value;
+          if (elementId === "audio_id") {
+            this.toggleVoiceEditability();
+            document.getElementById("current_audio_id").textContent = this.annotations[this.state.currentVoiceIndex].audio_id != null ? this.annotations[this.state.currentVoiceIndex].audio_id : "Empty";
+          }
         }
         this.imageManager.drawImageAnnotations([this.annotations[this.state.currentVoiceIndex]]);
         this.annotations[this.state.currentVoiceIndex]["isChanged"] = true;
@@ -896,6 +1253,27 @@ class MangaAnnotationTool {
         this.annotations[this.state.currentVoiceIndex].isChanged = true;
       };
       document.getElementById(elementId).addEventListener("input", redrawImageAnnotation);
+    });
+
+    // start/end は確定時に音声を再切り出しする
+    ["start", "end"].forEach((elementId) => {
+      document.getElementById(elementId).addEventListener("change", async () => {
+        const annotation = this.annotations[this.state.currentVoiceIndex];
+        if (!annotation) {
+          return;
+        }
+        const start = Number(document.getElementById("start").value);
+        const end = Number(document.getElementById("end").value);
+        if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || start >= end) {
+          this.setOverlayState(true, "Invalid start/end time range.");
+          this.writeAnnotationDetails(annotation);
+          return;
+        }
+        annotation.start = this.roundTime(start);
+        annotation.end = this.roundTime(end);
+        annotation.isChanged = true;
+        await this.reloadCurrentAudioPreview();
+      });
     });
     {
       // クリック時に選択されたリージョンの状態をトグル
@@ -922,6 +1300,13 @@ class MangaAnnotationTool {
     // アノテーションをリセット（再取得）
     document.getElementById("resetAnnotation").addEventListener("click", async () => {
       await this.resetAnnotation(this.annotations[this.state.currentVoiceIndex]);
+    });
+    // アノテーションを削除
+    document.getElementById("deleteAnnotation").addEventListener("click", async () => {
+      // const confirmation = confirm("Are you sure you want to delete this annotation?");
+      // if (confirmation) {
+      await this.deleteAnnotation(this.annotations[this.state.currentVoiceIndex]);
+      // }
     });
 
     // canvas上でマウス移動時にバウンディングボックスを検出
@@ -1021,6 +1406,10 @@ class MangaAnnotationTool {
     window.addEventListener("resize", () => {
       this.imageManager.updateCanvasSize();
       this.imageManager.drawImageAnnotations([this.annotations[this.state.currentVoiceIndex]]);
+    });
+
+    document.getElementById("voice_edit_mode_toggle").addEventListener("change", () => {
+      this.toggleVoiceEditability();
     });
   }
 }

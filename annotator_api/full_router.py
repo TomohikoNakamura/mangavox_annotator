@@ -1,6 +1,8 @@
 import argparse
 import asyncio
 import io
+import subprocess
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -98,11 +100,27 @@ def pre_init(args: argparse.Namespace) -> AppState:
     )
 
     # Load audio data
+    audio_path = args.audio_filename
     if args.audio_filename.suffix[1:] != "mp3":
-        raise ValueError(
-            f"Audio file must be in MP3 format. Given: {args.audio_filename.suffix}"
+        # If not mp3 file, convert to mp3
+        logger.info(
+            f"Converting audio file to MP3 format for compatibility. Given: {args.audio_filename.suffix}"
         )
-    with open(args.audio_filename, "rb") as fp:
+        mp3_fp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+        mp3_file_path = Path(mp3_fp.name)
+        mp3_fp.close()
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", str(args.audio_filename), "-codec:a", "libmp3lame", "-b:a", "192k", str(mp3_file_path)],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        audio_path = mp3_file_path
+        logger.info(f"Converted audio file saved at: {audio_path}")
+        # raise ValueError(
+        #     f"Audio file must be in MP3 format. Given: {args.audio_filename.suffix}"
+        # )
+    with open(audio_path, "rb") as fp:
         audio_raw_data = fp.read()
 
     # Load image data

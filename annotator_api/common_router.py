@@ -7,6 +7,7 @@ from typing import Dict, List, Optional
 import yaml
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, Response, StreamingResponse
+from loguru import logger
 
 from annotator_api.utils import (
     AppState,
@@ -316,6 +317,73 @@ async def get_characters(request: Request) -> StreamingResponse:
     )
 
 
+@router.get("/delete/annotation/{voice_id}")
+async def delete_annotation(voice_id: str, request: Request) -> Response:
+    """Delete an annotation from the aligned voices data.
+
+    Args:
+        voice_id (str): The ID of the voice annotation to delete.
+        request (Request): The FastAPI request object.
+    Returns:
+        Response: A response indicating the result of the delete operation.
+    """
+    state: AppState = request.app.state.app_data
+    if (
+        state.pre_loaded_data is None
+        or state.constants is None
+        or state.output_data is None
+    ):
+        raise HTTPException(
+            status_code=500,
+            detail="Application state not initialized. Please check the server logs.",
+        )
+    if state.pre_loaded_data.aligned_voices is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Annotation data not loaded. Please check the server logs.",
+        )
+    if state.output_data.change_log_lock is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Change log lock not initialized. Please check the server logs.",
+        )
+
+    async with state.output_data.change_log_lock:
+        # Find the index of the voice to delete
+        target_indexes = []
+        for i, voice in enumerate(state.pre_loaded_data.aligned_voices.voices):
+            if voice.id == voice_id:
+                target_indexes.append(i)
+        if len(target_indexes) != 1:
+            raise HTTPException(
+                status_code=404,
+                detail="Annotation ID not found.",
+            )
+        target_index = target_indexes[0]
+
+        # Delete the voice annotation
+        deleted_voice = state.pre_loaded_data.aligned_voices.voices.pop(target_index)
+
+        # Update the assignment to the image-based elements
+        state.pre_loaded_data.aligned_voices.update_assigned(
+            page_index=deleted_voice.page_index
+        )
+
+        # Save the change log
+        ret = {
+            "timestamp": get_timestamp_in_iso8601_format(),
+            "uid": generate_client_uid(request),
+            "voice_id": voice_id,
+            "delete": True,
+        }
+        with open(state.output_data.change_log_filename, "a") as fp:
+            fp.write(yaml.dump([ret], allow_unicode=True))
+        
+        # log the deletion
+        logger.info(f"Deleted annotation with voice ID: {voice_id}")
+
+    return Response(status_code=200)
+
 @router.post("/update/annotation")
 async def update_annotation(annotation: dict, request: Request) -> Response:
     """Update an annotation in the aligned voices data.
@@ -398,6 +466,15 @@ async def update_annotation(annotation: dict, request: Request) -> Response:
             state.pre_loaded_data.aligned_voices.update_assigned(
                 page_index=annotation["page_index"]
             )
+            # UTT mode serves cached per-voice clips. Time edits invalidate the
+            # edited voice's clip and active audio_id candidates.
+            if any(change["key"] in {"start", "end"} for change in change_logs):
+                try:
+                    from annotator_api.utt_router import refresh_clipped_voice_cache
+
+                    refresh_clipped_voice_cache(state, annotation["id"])
+                except ValueError as exc:
+                    raise HTTPException(status_code=400, detail=str(exc)) from exc
         else:
             # If no change is made, return 204 No Content
             return Response(status_code=204)
@@ -407,7 +484,6 @@ async def update_annotation(annotation: dict, request: Request) -> Response:
             fp.write(yaml.dump([ret], allow_unicode=True))
 
     return Response(status_code=200)
-
 
 @router.get("/", response_class=HTMLResponse)
 async def root(request: Request) -> HTMLResponse:

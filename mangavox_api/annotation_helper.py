@@ -27,6 +27,7 @@ from xsdata.formats.dataclass.parsers import DictDecoder
 
 from mangavox_api.manga109_ann import Body, Face, Frame, Text
 from mangavox_api.mangavox_ann import MangaVox, Voice
+from mangavox_api.utils import get_timestamp_in_iso8601_format
 
 
 def dict_to_dataclass(cls: Type, data: dict) -> Any:
@@ -350,6 +351,39 @@ class MangaVoxForAnnotation(MangaVox):
         metadata={"type": XmlType.ELEMENT, "name": "aligned_voice"},
     )  # type: ignore
 
+    @classmethod
+    def from_mangavox(cls, manga_vox: MangaVox) -> MangaVoxForAnnotation:
+        """Convert public MangaVox annotations into the annotation XML format."""
+        timestamp = get_timestamp_in_iso8601_format()
+        return cls(
+            title=manga_vox.title,
+            version=manga_vox.version,
+            manga109_version=manga_vox.manga109_version,
+            characters=manga_vox.characters,
+            voices=[
+                ExtendedVoice(
+                    id=voice.id,
+                    index=voice.index,
+                    start=voice.start,
+                    end=voice.end,
+                    episode_index=voice.episode_index,
+                    character_id=voice.character_id,
+                    actor_id=voice.actor_id,
+                    text_id=voice.text_id,
+                    page_index=voice.page_index,
+                    frame_id=voice.frame_id,
+                    face_id=voice.face_id,
+                    body_id=voice.body_id,
+                    text=voice.text,
+                    audio_id=voice.audio_id,
+                )
+                for voice in manga_vox.voices
+            ],
+            pages=manga_vox.pages,
+            created=timestamp,
+            last_modified=timestamp,
+        )
+
     def get_voice_by_id(self, target_id: str) -> Optional[ExtendedVoice]:
         """Find the voice by ID
 
@@ -387,10 +421,18 @@ class MangaVoxForAnnotation(MangaVox):
             [voice.character_id for voice in self.voices] + used_character_ids
         )
 
-        for character in self.characters.character:
-            if character.id not in used_character_ids:
-                logger.info(f"Remove character: {character.id} {character.name}")
-                self.characters.character.remove(character)
+        unused_characters = [
+            character
+            for character in self.characters.character
+            if character.id not in used_character_ids
+        ]
+        for character in unused_characters:
+            logger.info(f"Remove character: {character.id} {character.name}")
+        self.characters.character = [
+            character
+            for character in self.characters.character
+            if character.id in used_character_ids
+        ]
 
     def check_undefined_characters(self):
         """Check the undefined characters
@@ -447,9 +489,7 @@ class MangaVoxForAnnotation(MangaVox):
         body_ids: Set[str] = set()
         face_ids: Set[str] = set()
         frame_ids: Set[str] = set()
-        if (
-            page_index
-        ):  # update only text/body/face/frame assigned attributes in the specified page
+        if page_index is not None:
             target_voices = filter(lambda x: x.page_index == page_index, self.voices)
         else:
             target_voices = self.voices  # type: ignore
@@ -459,9 +499,7 @@ class MangaVoxForAnnotation(MangaVox):
             face_ids = filter_elements("face_id", voice, face_ids)
             frame_ids = filter_elements("frame_id", voice, frame_ids)
         # Update the assigned attributes
-        if (
-            page_index
-        ):  # update only text/body/face/frame assigned attributes in the specified page
+        if page_index is not None:
             target_page = self.pages.page[page_index]
             for to_be_updateds, ids in zip(
                 [

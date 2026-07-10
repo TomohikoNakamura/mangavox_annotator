@@ -149,7 +149,7 @@ class ImageManager {
   async loadImage(onload_func = null) {
     try {
       // 画像を取得
-      const response = await fetch(`http://localhost:8000/image/${this.state.currentPage}`);
+      const response = await fetch(`/image/${this.state.currentPage}`);
       if (!response.ok) {
         throw new Error(`Failed to fetch audio: ${response.statusText}`);
       }
@@ -186,7 +186,7 @@ class ImageManager {
   async loadImageAnnotation(pageNumber = -1) {
     try {
       // 当該画像（ページ）内の画像に対するアノテーションを全部取得
-      const response = await fetch(`http://localhost:8000/annotations/image/${pageNumber}`);
+      const response = await fetch(`/annotations/image/${pageNumber}`);
       if (!response.ok) {
         throw new Error(`Failed to fetch annotations: ${response.statusText}`);
       }
@@ -209,7 +209,7 @@ class ImageManager {
   async loadStats() {
     try {
       // 統計情報を取得
-      const response = await fetch(`http://localhost:8000/stats`);
+      const response = await fetch(`/stats`);
       if (!response.ok) {
         throw new Error(`Failed to fetch stats: ${response.statusText}`);
       }

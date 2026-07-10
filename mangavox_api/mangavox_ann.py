@@ -363,9 +363,7 @@ class MangaVox(AnnotationMixin):
         body_ids: Set[str] = set()
         face_ids: Set[str] = set()
         frame_ids: Set[str] = set()
-        if (
-            page_index
-        ):  # update only text/body/face/frame assigned attributes in the specified page
+        if page_index is not None:
             target_voices = list(
                 filter(lambda x: x.page_index == page_index, self.voices)
             )
@@ -377,9 +375,7 @@ class MangaVox(AnnotationMixin):
             face_ids = filter_elements("face_id", voice, face_ids)
             frame_ids = filter_elements("frame_id", voice, frame_ids)
         # Update the assigned attributes
-        if (
-            page_index
-        ):  # update only text/body/face/frame assigned attributes in the specified page
+        if page_index is not None:
             target_page = self.pages[page_index]
             for to_be_updateds, ids in zip(
                 [

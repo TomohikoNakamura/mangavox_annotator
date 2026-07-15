@@ -86,6 +86,8 @@ def parse_args():
         description="MangaVox Annotation Tool Server",
         add_help=False,
     )
+    common_parser.add_argument("--host", default="127.0.0.1", type=str, help="Host IP")
+    common_parser.add_argument("--port", default=8000, type=int, help="Port")
     common_parser.add_argument(
         "--image_root", type=Path, required=True, help="Root directory of the images."
     )
@@ -139,4 +141,4 @@ if __name__ == "__main__":
 
     args = parse_args()
     app = create_app(args)
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host=args.host, port=args.port)

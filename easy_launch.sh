@@ -2,8 +2,8 @@
 
 set -ue
 
-HOST="127.0.0.1"
-PORT="8000"
+MANGAVOX_HOST="${MANGAVOX_HOST:-127.0.0.1}"
+MANGAVOX_PORT="${MANGAVOX_PORT:-8000}"
 MANGA109_IMAGES_ROOT="data/manga109/Manga109_released_2023_12_07/images"
 MANGA109_XML_ROOT="data/workspace"
 MANGA109_XML_SUFFIX="_v1"
@@ -30,14 +30,18 @@ num=$((num-1))
 MANGA_TITLE=${MANGA_TITLE_LIST[$num]}
 echo "Launching MangaVox annotator: ${MANGA_TITLE} in mode: ${mode}"
 if [ "$mode" == "full" ]; then
-    uv run python launch.py $mode --host "${HOST}" --port ${PORT} \
+    uv run python launch.py $mode \
+        --host "${MANGAVOX_HOST}" \
+        --port "${MANGAVOX_PORT}" \
         --image_root ${MANGA109_IMAGES_ROOT}/${MANGA_TITLE} \
         ${MANGA109_XML_ROOT}/${MANGA_TITLE}${MANGA109_XML_SUFFIX}.xml \
         ${MANGAVOX_VOICE_ROOT}/${MANGA_TITLE}_ALL.flac
 elif [ "$mode" == "utt" ]; then
-    uv run python launch.py $mode --host "${HOST}" --port ${PORT} \
+    uv run python launch.py $mode \
+        --host "${MANGAVOX_HOST}" \
+        --port "${MANGAVOX_PORT}" \
         --image_root ${MANGA109_IMAGES_ROOT}/${MANGA_TITLE} \
-        ${MANGA109_XML_ROOT}/${MANGA_TITLE}${MANGA109_XML_SUFFIX}.xml 
+        ${MANGA109_XML_ROOT}/${MANGA_TITLE}${MANGA109_XML_SUFFIX}.xml \
         ${MANGAVOX_CONCATENATED_VOICE_ROOT}/${MANGA_TITLE}
 else
     echo "Invalid mode: $mode"

@@ -1,9 +1,15 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "mangavox-annotator"
 version = "1.0.0"
 description = "MangaVox annotation tool"
 readme = "README.md"
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
 dependencies = [
     "fastapi[all]>=0.116.0",
     "loguru>=0.7.3",
@@ -13,6 +19,12 @@ dependencies = [
     "tqdm>=4.67.1",
     "xsdata[cli,lxml,soap]>=25.7",
 ]
+
+[project.urls]
+Repository = "https://github.com/TomohikoNakamura/mangavox_annotator"
+Issues = "https://github.com/TomohikoNakamura/mangavox_annotator/issues"
+Paper = "https://doi.org/10.1109/ICASSP55912.2026.11463396"
+Dataset = "https://huggingface.co/datasets/imprt/mangavox_annotations"
 
 [dependency-groups]
 dev = [
@@ -26,7 +38,6 @@ dev = [
 required-version = ">=0.11.27"
 exclude-newer = "14 days"
 index-strategy = "first-index"
-no-build = true
 prerelease = "disallow"
 
 [[tool.uv.index]]
@@ -35,6 +46,9 @@ url = "https://pypi.flatt.tech/simple/"
 default = true
 
 [tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
 select = ["E", "F", "I"]
 ignore = ["E501"]
 

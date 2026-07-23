@@ -17,3 +17,4 @@ uv.lock
 logs
 data
 tmp
+.DS_store

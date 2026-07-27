@@ -467,35 +467,6 @@ The MangaVox and Manga109 data are governed by terms of use that are separate fr
 * The MIT License of this repository does not apply to the MangaVox or Manga109 data.
 
 # Appendix
-
-## Titles
-
-| Title                                |     Period    |       Genre      | Total duration [h] | Total utterance duration [h] | Characters | Male actors | Female actors | Utterances |
-| :----------------------------------- | :-----------: | :--------------: | -----------------: | ---------------------------: | ---------: | ----------: | ------------: | ---------: |
-| ラブひな (`LoveHina_vol01`)              |     1990s     |  Romantic comedy |                1.8 |                          1.3 |         14 |           1 |             2 |      2,270 |
-| ひなぎく見参！一本桜花町編 (`HinagikuKenzan`)     |     2000s     |      Romance     |                1.3 |                          0.8 |         16 |           1 |             3 |      1,282 |
-| サラダデイズ (`SaladDays_vol01`)           |     1990s     |      Romance     |                1.6 |                          1.0 |         27 |           3 |             4 |      1,719 |
-| エヴリデイおさかなちゃん (`EverydayOsakanaChan`) |     1990s     |      Animals     |                2.3 |                          1.5 |         44 |           1 |             2 |      2,336 |
-| やさしい悪魔 (`YasasiiAkuma`)              |     1990s     |      Fantasy     |                2.2 |                          1.4 |         28 |           3 |             2 |      1,694 |
-| 太陽にスマッシュ！ (`TaiyouNiSmash`)          |     2000s     |      Sports      |                1.3 |                          0.8 |         15 |           2 |             2 |      1,202 |
-| あっけら貫刃帖 (`AkkeraKanjinchou`)         |     2000s     |      Battle      |                1.6 |                          1.1 |         27 |           3 |             3 |      1,619 |
-| あくはむ (`Akuhamu`)                     |     2000s     | Four-panel manga |                1.8 |                          1.1 |         35 |           1 |             3 |      2,036 |
-| **Total**                            | **2 periods** |   **7 genres**   |           **14.0** |                      **9.0** |    **206** |       **9** |         **9** | **14,158** |
-
-## Number of Utterance-to-Manga109 Element Links
-
-| Title         |    `frame` |     `text` |    `face` |    `body` |
-| :------------ | ---------: | ---------: | --------: | --------: |
-| ラブひな          |      2,248 |      1,943 |     1,598 |     1,911 |
-| ひなぎく見参！一本桜花町編 |      1,230 |        947 |       647 |       936 |
-| サラダデイズ        |      1,700 |      1,331 |       913 |     1,251 |
-| エヴリデイおさかなちゃん  |      2,287 |      1,926 |       608 |       929 |
-| やさしい悪魔        |      1,677 |      1,587 |       952 |     1,077 |
-| 太陽にスマッシュ！     |      1,192 |        928 |       743 |       853 |
-| あっけら貫刃帖       |      1,653 |      1,349 |       820 |     1,020 |
-| あくはむ          |      1,861 |      1,431 |     1,251 |     1,619 |
-| **Total**     | **13,848** | **11,442** | **7,532** | **9,596** |
-
 ## Main Attributes of Utterance Elements
 
 The following table lists the main attributes used in `voice` and `aligned_voice` elements.

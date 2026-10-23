@@ -1,3 +1,5 @@
+# Copyright (C) 2025 National Institute of Advanced Industrial Science and Technology (AIST)
+
 import io
 import json
 from dataclasses import asdict
@@ -378,11 +380,12 @@ async def delete_annotation(voice_id: str, request: Request) -> Response:
         }
         with open(state.output_data.change_log_filename, "a") as fp:
             fp.write(yaml.dump([ret], allow_unicode=True))
-        
+
         # log the deletion
         logger.info(f"Deleted annotation with voice ID: {voice_id}")
 
     return Response(status_code=200)
+
 
 @router.post("/update/annotation")
 async def update_annotation(annotation: dict, request: Request) -> Response:
@@ -484,6 +487,7 @@ async def update_annotation(annotation: dict, request: Request) -> Response:
             fp.write(yaml.dump([ret], allow_unicode=True))
 
     return Response(status_code=200)
+
 
 @router.get("/", response_class=HTMLResponse)
 async def root(request: Request) -> HTMLResponse:

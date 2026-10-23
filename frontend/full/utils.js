@@ -1,3 +1,5 @@
+/* Copyright (C) 2025 National Institute of Advanced Industrial Science and Technology (AIST) */
+
 /** Bootstrap Toastを作成する関数
  * @param {string} message - トーストに表示するメッセージ
  * @param {string} type - トーストの種類（"info", "success", "warning", "danger"）

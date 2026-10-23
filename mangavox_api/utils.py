@@ -2,6 +2,8 @@
 ===================================
 This module provides utility functions and classes for handling annotations in the MangaVox format.
 It includes a mixin class for reading and writing annotation files, computing hash values, and managing timestamps.
+
+Copyright (C) 2025 National Institute of Advanced Industrial Science and Technology (AIST)
 """
 
 from __future__ import annotations

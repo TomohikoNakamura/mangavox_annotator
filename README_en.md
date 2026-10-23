@@ -436,10 +436,6 @@ uv run python -m scripts.generate_annotation_stats \
   --audio-root data/manga2voice/concatenated_voices
 ```
 
-## Development and Maintenance
-
-* [Tomohiko Nakamura (AIST)](https://github.com/TomohikoNakamura)
-
 ## Citation
 
 When using this tool in research, cite the following paper:

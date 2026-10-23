@@ -1,3 +1,5 @@
+# Copyright (C) 2025 National Institute of Advanced Industrial Science and Technology (AIST)
+
 import argparse
 import asyncio
 import io
@@ -229,7 +231,9 @@ async def get_audio_by_voice_id(
         audio_data, sample_rate, _metadata = clipped
     else:
         if state.pre_loaded_data.clipped_voices is None:
-            raise HTTPException(status_code=500, detail="Clipped audio data not loaded.")
+            raise HTTPException(
+                status_code=500, detail="Clipped audio data not loaded."
+            )
 
         if character_name not in state.pre_loaded_data.clipped_voices[voice_id]:
             raise HTTPException(status_code=404, detail="Silent section")
@@ -273,7 +277,9 @@ async def get_audio_clip_metadata(
         raise HTTPException(status_code=500, detail="Annotation data not loaded.")
 
     target_voices = [
-        voice for voice in state.pre_loaded_data.aligned_voices.voices if voice.id == voice_id
+        voice
+        for voice in state.pre_loaded_data.aligned_voices.voices
+        if voice.id == voice_id
     ]
     if len(target_voices) != 1:
         raise HTTPException(status_code=404, detail=f"Voice ID '{voice_id}' not found.")
@@ -289,7 +295,10 @@ async def get_audio_clip_metadata(
 
     metadata_list: List[ClipMetadata] = []
     try:
-        for character_name, audio_raw_data in state.pre_loaded_data.audio_raw_data_dict.items():
+        for (
+            character_name,
+            audio_raw_data,
+        ) in state.pre_loaded_data.audio_raw_data_dict.items():
             clipped = clip_audio_range(
                 character_name,
                 audio_raw_data,
@@ -322,7 +331,9 @@ def refresh_clipped_voice_cache(state: AppState, voice_id: str) -> None:
         return
 
     target_voices = [
-        voice for voice in state.pre_loaded_data.aligned_voices.voices if voice.id == voice_id
+        voice
+        for voice in state.pre_loaded_data.aligned_voices.voices
+        if voice.id == voice_id
     ]
     if len(target_voices) != 1:
         raise ValueError(f"Voice ID '{voice_id}' not found.")

@@ -1,4 +1,4 @@
-"""Mix MangaVox character tracks into an ALL-equivalent FLAC file."""
+# Copyright (C) 2025 National Institute of Advanced Industrial Science and Technology (AIST)
 
 from __future__ import annotations
 

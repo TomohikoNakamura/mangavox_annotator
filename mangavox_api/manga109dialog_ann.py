@@ -2,6 +2,8 @@
 ===================================
 This module defines data classes for handling Manga109 dialog annotations.
 It includes classes for mapping speakers to text, representing pages, and the overall dialog annotation structure.
+
+Copyright (C) 2025 National Institute of Advanced Industrial Science and Technology (AIST)
 """
 
 import dataclasses

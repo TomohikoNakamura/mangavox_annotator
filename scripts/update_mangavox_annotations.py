@@ -1,3 +1,5 @@
+# Copyright (C) 2025 National Institute of Advanced Industrial Science and Technology (AIST)
+
 import argparse
 from datetime import datetime
 from pathlib import Path

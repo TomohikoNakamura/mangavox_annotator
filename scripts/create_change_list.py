@@ -1,3 +1,5 @@
+# Copyright (C) 2025 National Institute of Advanced Industrial Science and Technology (AIST)
+
 import argparse
 from dataclasses import asdict
 from pathlib import Path

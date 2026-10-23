@@ -2,6 +2,8 @@
 ===================================
 This module provides helper functions and classes for handling annotations in the MangaVox format.
 It includes functions to convert dictionaries to dataclasses, manage voice annotations, and handle MangaVox annotations.
+
+Copyright (C) 2025 National Institute of Advanced Industrial Science and Technology (AIST)
 """
 
 from __future__ import annotations
@@ -43,7 +45,7 @@ def dict_to_dataclass(cls: Type, data: dict) -> Any:
     if not isinstance(data, dict):
         # Basic data types (int, float, str, etc.) are returned as is
         return data
-    
+
     # unwrap optional and union types
     origin = get_origin(cls)
     if origin is Union:
@@ -60,7 +62,7 @@ def dict_to_dataclass(cls: Type, data: dict) -> Any:
     # get field types
     type_hints = get_type_hints(cls)
     fieldtypes = {f.name: type_hints.get(f.name, Any) for f in dataclasses.fields(cls)}
-    
+
     return cls(
         **{
             key: dict_to_dataclass(fieldtypes[key], value)

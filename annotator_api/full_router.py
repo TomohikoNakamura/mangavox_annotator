@@ -1,3 +1,5 @@
+# Copyright (C) 2025 National Institute of Advanced Industrial Science and Technology (AIST)
+
 import argparse
 import asyncio
 import io
@@ -110,7 +112,17 @@ def pre_init(args: argparse.Namespace) -> AppState:
         mp3_file_path = Path(mp3_fp.name)
         mp3_fp.close()
         subprocess.run(
-            ["ffmpeg", "-y", "-i", str(args.audio_filename), "-codec:a", "libmp3lame", "-b:a", "192k", str(mp3_file_path)],
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                str(args.audio_filename),
+                "-codec:a",
+                "libmp3lame",
+                "-b:a",
+                "192k",
+                str(mp3_file_path),
+            ],
             check=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,

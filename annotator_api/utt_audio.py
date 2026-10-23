@@ -3,6 +3,8 @@
 UTT mode serves short clips around a voice instead of the full audio stream.
 These helpers keep the mapping between absolute annotation times and the
 relative region drawn inside each clipped waveform in one place.
+
+Copyright (C) 2025 National Institute of Advanced Industrial Science and Technology (AIST)
 """
 
 import io
@@ -91,10 +93,10 @@ def clip_audio_range(
         if numpy.abs(core_data).max() == 0:
             return None
 
-        clip_start_frame = max(
-            0, _time_to_frame(start_time - margins[0], sample_rate)
+        clip_start_frame = max(0, _time_to_frame(start_time - margins[0], sample_rate))
+        clip_end_frame = min(
+            n_frames, _time_to_frame(end_time + margins[1], sample_rate)
         )
-        clip_end_frame = min(n_frames, _time_to_frame(end_time + margins[1], sample_rate))
         if clip_start_frame >= clip_end_frame:
             raise ValueError(
                 "Invalid start and end time. "

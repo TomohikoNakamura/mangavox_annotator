@@ -2,7 +2,10 @@
 ===================================
 This module provides data classes and utilities for handling Manga109 annotations.
 It includes classes for bounding boxes, characters, frames, faces, bodies, texts, and pages.
-It also provides methods for drawing annotations on images and calculating areas and intersections of bounding boxes."""
+It also provides methods for drawing annotations on images and calculating areas and intersections of bounding boxes.
+
+Copyright (C) 2025 National Institute of Advanced Industrial Science and Technology (AIST)
+"""
 
 from __future__ import annotations
 

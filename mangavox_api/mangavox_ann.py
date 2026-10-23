@@ -1,7 +1,10 @@
 """mangavox_api.mangavox_ann
 ===================================
 This module defines data classes for handling MangaVox annotations.
-It includes classes for characters, voices, and the overall MangaVox annotation structure."""
+It includes classes for characters, voices, and the overall MangaVox annotation structure.
+
+Copyright (C) 2025 National Institute of Advanced Industrial Science and Technology (AIST)
+"""
 
 from __future__ import annotations
 

@@ -1,3 +1,5 @@
+# Copyright (C) 2025 National Institute of Advanced Industrial Science and Technology (AIST)
+
 from __future__ import annotations
 
 import argparse
@@ -19,15 +21,31 @@ TITLE_METADATA = {
         "era": "2000s",
         "genre": "恋愛",
     },
-    "SaladDays_vol01": {"display_name": "サラダデイズ", "era": "1990s", "genre": "恋愛"},
+    "SaladDays_vol01": {
+        "display_name": "サラダデイズ",
+        "era": "1990s",
+        "genre": "恋愛",
+    },
     "EverydayOsakanaChan": {
         "display_name": "エヴリデイおさかなちゃん",
         "era": "1990s",
         "genre": "動物",
     },
-    "YasasiiAkuma": {"display_name": "やさしい悪魔", "era": "1990s", "genre": "ファンタジー"},
-    "TaiyouNiSmash": {"display_name": "太陽にスマッシュ！", "era": "2000s", "genre": "スポーツ"},
-    "AkkeraKanjinchou": {"display_name": "あっけら貫刃帖", "era": "2000s", "genre": "バトル"},
+    "YasasiiAkuma": {
+        "display_name": "やさしい悪魔",
+        "era": "1990s",
+        "genre": "ファンタジー",
+    },
+    "TaiyouNiSmash": {
+        "display_name": "太陽にスマッシュ！",
+        "era": "2000s",
+        "genre": "スポーツ",
+    },
+    "AkkeraKanjinchou": {
+        "display_name": "あっけら貫刃帖",
+        "era": "2000s",
+        "genre": "バトル",
+    },
     "Akuhamu": {"display_name": "あくはむ", "era": "2000s", "genre": "4コマ"},
 }
 
@@ -172,9 +190,7 @@ def collect_stats(xml_path: Path, audio_root: Path) -> AnnotationStats:
             audio_root, annotated_voices.title
         )
         / 3600,
-        speech_duration_hours=sum(
-            voice.end - voice.start for voice in aligned_voices
-        )
+        speech_duration_hours=sum(voice.end - voice.start for voice in aligned_voices)
         / 3600,
         character_count=count_characters(aligned_voices),
         male_actor_ids=male_actor_ids,
@@ -189,7 +205,9 @@ def collect_stats(xml_path: Path, audio_root: Path) -> AnnotationStats:
 
 def sort_stats(stats: list[AnnotationStats]) -> list[AnnotationStats]:
     order = {title: index for index, title in enumerate(TITLE_ORDER)}
-    return sorted(stats, key=lambda item: (order.get(item.title, len(order)), item.title))
+    return sorted(
+        stats, key=lambda item: (order.get(item.title, len(order)), item.title)
+    )
 
 
 def format_float(value: float) -> str:
@@ -253,14 +271,11 @@ def main() -> None:
     if not xml_paths:
         raise FileNotFoundError("No XML files found.")
 
-    stats = sort_stats(
-        [
-            collect_stats(path, args.audio_root)
-            for path in xml_paths
-        ]
-    )
+    stats = sort_stats([collect_stats(path, args.audio_root) for path in xml_paths])
     if args.format == "json":
-        print(json.dumps([asdict(item) for item in stats], ensure_ascii=False, indent=2))
+        print(
+            json.dumps([asdict(item) for item in stats], ensure_ascii=False, indent=2)
+        )
     else:
         print(render_markdown(stats))
 

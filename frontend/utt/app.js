@@ -1,3 +1,4 @@
+/* Copyright (C) 2025 National Institute of Advanced Industrial Science and Technology (AIST) */
 
 const HELP_DESCRIPTION = `
   <h5>Help: Keyboard Shortcuts</h5>

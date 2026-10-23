@@ -504,7 +504,7 @@ class MangaVox(AnnotationMixin):
         image_root: Path,
         frame_size: Tuple[int, int],
         verbose: bool = False,
-        n_threads: int = -1,
+        n_threads: int | None = None,
     ):
         """Generate the annotated images sequentially
 
@@ -573,10 +573,10 @@ class MangaVox(AnnotationMixin):
                         if self.voices[index].page_index is None:
                             continue
                         if (
-                            self.characters.get_character_name_by_id(
+                            self.characters.get_character_details_by_id(
                                 self.voices[index].character_id
-                            ).lower()
-                            == "background_chatter"
+                            ).roman
+                            == "gaya"
                         ):
                             continue
                         page_indices.append(cast(int, self.voices[index].page_index))

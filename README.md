@@ -37,10 +37,16 @@
       src="https://img.shields.io/badge/paper-ICASSP%202026-red"
     >
   </a>
+  <a href="https://www.nii.ac.jp/dsc/idr/speech/submit/MangaVox.html">
+    <img
+      alt="MangaVox audio data (NII-IDR)"
+      src="https://img.shields.io/badge/audio-NII--IDR-blue"
+    >
+  </a>
   <a href="https://huggingface.co/datasets/imprt/mangavox_annotations">
     <img
-      alt="MangaVox dataset"
-      src="https://img.shields.io/badge/dataset-MangaVox-green"
+      alt="MangaVox annotations (Hugging Face)"
+      src="https://img.shields.io/badge/annotations-Hugging%20Face-yellow"
     >
   </a>
 </p>
